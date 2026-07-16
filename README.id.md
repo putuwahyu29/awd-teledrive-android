@@ -1,7 +1,7 @@
-# awd-teledrive-android 📱🚀
+# Awd TeleDrive Android 📱🚀
 
 <p align="center">
-  <img src="logo-drive.png" width="130" height="130" alt="Logo awd-teledrive-android">
+  <img src="logo-drive.png" width="130" height="130" alt="Logo Awd TeleDrive Android">
 </p>
 
 <p align="center">
@@ -14,15 +14,15 @@
   <img src="https://img.shields.io/badge/Arsitektur-MVI--Clean-orange?style=flat-square" alt="Badge Arsitektur">
 </p>
 
-**awd-teledrive-android** adalah aplikasi Android inovatif yang mengubah akun Telegram Anda menjadi penyimpanan cloud pribadi tak terbatas yang aman. Kelola file, cadangkan media secara otomatis di latar belakang, dan nikmati tampilan direktori media Anda melalui antarmuka Material 3 modern berbasis Jetpack Compose sepenuhnya.
+**Awd TeleDrive Android** adalah aplikasi Android inovatif yang mengubah akun Telegram Anda menjadi penyimpanan cloud pribadi tak terbatas yang aman. Kelola file, cadangkan media secara otomatis di latar belakang, dan nikmati tampilan direktori media Anda melalui antarmuka Material 3 modern berbasis Jetpack Compose sepenuhnya.
 
 ---
 
 ## 🌐 Ekosistem Teledrive
 Aplikasi ini merupakan bagian dari ekosistem lintas platform yang dirancang untuk menjadikan Telegram sebagai penyimpanan cloud pribadi Anda:
-*   **📱 [awd-teledrive-android](https://github.com/putuwahyu29/awd-teledrive-android)**: Manajer file dan alat pencadangan Android yang aman.
-*   **💻 [awd-teledrive-desktop](https://github.com/putuwahyu29/awd-teledrive-desktop)**: Klien desktop Wails (Go) + React berkinerja tinggi dengan sinkronisasi dua arah, dekripsi lokal, dan Berbagi Web via Cloudflare.
-*   **📸 [awd-telephoto-android](https://github.com/putuwahyu29/awd-telephoto-android)**: Aplikasi pendamping untuk pencadangan foto/video terenkripsi di sisi klien.
+*   **📱 [Awd TeleDrive Android](https://github.com/putuwahyu29/awd-teledrive-android)**: Manajer file dan alat pencadangan Android yang aman.
+*   **💻 [Awd TeleDrive Desktop](https://github.com/putuwahyu29/awd-teledrive-desktop)**: Klien desktop Wails (Go) + React berkinerja tinggi dengan sinkronisasi dua arah, dekripsi lokal, dan Berbagi Web via Cloudflare.
+*   **📸 [Awd TelePhoto Android](https://github.com/putuwahyu29/awd-telephoto-android)**: Aplikasi pendamping untuk pencadangan foto/video terenkripsi di sisi klien.
 
 ---
 
@@ -72,7 +72,7 @@ Aplikasi ini merupakan bagian dari ekosistem lintas platform yang dirancang untu
 
 ## 📊 Matriks Perbandingan Fitur
 
-| Fitur | 📱 awd-teledrive-android | 💻 awd-teledrive-desktop | 📸 awd-telephoto-android |
+| Fitur | 📱 Awd TeleDrive Android | 💻 Awd TeleDrive Desktop | 📸 Awd TelePhoto Android |
 | :--- | :---: | :---: | :---: |
 | **Penyimpanan Cloud Tanpa Batas** | Ya (Hingga 2GB per file) | Ya (Ukuran file tidak terbatas) | Ya (Foto & Video) |
 | **Manajer File & Folder** | Ya | Ya | Tampilan Galeri saja |
@@ -102,12 +102,12 @@ Semua data persisten, sesi cache, dan database disimpan dengan aman di direktori
 *   Perangkat Android yang menjalankan Android 8.0 (API 26) atau lebih tinggi.
 
 ### Cara Mendapatkan Kredensial API Telegram
-awd-teledrive-android membutuhkan API ID & API Hash Anda sendiri untuk terhubung ke server Telegram secara aman. Ikuti langkah mudah berikut (gratis, ~2 menit):
+Awd TeleDrive Android membutuhkan API ID & API Hash Anda sendiri untuk terhubung ke server Telegram secara aman. Ikuti langkah mudah berikut (gratis, ~2 menit):
 1. Buka situs [my.telegram.org](https://my.telegram.org/) dan masuk menggunakan nomor Telegram Anda.
 2. Pilih menu **API development tools**.
 3. Isi formulir pembuatan aplikasi baru (Judul dan nama singkat bebas sesuai keinginan).
 4. Salin nilai **App api_id** dan **App api_hash**.
-5. Masukkan nilai tersebut pada layar pengaturan di aplikasi awd-teledrive-android.
+5. Masukkan nilai tersebut pada layar pengaturan di aplikasi Awd TeleDrive Android.
 
 > [!NOTE]
 > Informasi kredensial API ini disimpan sepenuhnya di perangkat lokal Anda. Aplikasi ini berkomunikasi langsung ke server resmi Telegram tanpa perantara pihak ketiga.
@@ -174,8 +174,8 @@ Pastikan Anda telah memasang Android Studio terbaru di komputer Anda.
 
 ## ⚙️ Penyelesaian Masalah
 
-*   **Keterlambatan Sinkronisasi WorkManager**: Sistem Android mungkin menunda sinkronisasi latar belakang untuk menghemat baterai. Anda dapat mematikan optimasi baterai khusus untuk aplikasi awd-teledrive-android di pengaturan Android.
-*   **Gagal Inisialisasi TDLib**: Pastikan ruang penyimpanan perangkat Anda masih mencukupi. Jika file database rusak, bersihkan data aplikasi melalui Setelan ➡️ Aplikasi ➡️ awd-teledrive-android ➡️ Hapus Data.
+*   **Keterlambatan Sinkronisasi WorkManager**: Sistem Android mungkin menunda sinkronisasi latar belakang untuk menghemat baterai. Anda dapat mematikan optimasi baterai khusus untuk aplikasi Awd TeleDrive Android di pengaturan Android.
+*   **Gagal Inisialisasi TDLib**: Pastikan ruang penyimpanan perangkat Anda masih mencukupi. Jika file database rusak, bersihkan data aplikasi melalui Setelan ➡️ Aplikasi ➡️ Awd TeleDrive Android ➡️ Hapus Data.
 *   **Kode OTP Tidak Diterima**: Periksa kembali apakah `api_id` dan `api_hash` yang Anda masukkan sudah sama dengan yang didapat dari `my.telegram.org`.
 
 ---

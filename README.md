@@ -1,7 +1,7 @@
-# awd-teledrive-android 📱🚀
+# Awd TeleDrive Android 📱🚀
 
 <p align="center">
-  <img src="logo-drive.png" width="130" height="130" alt="awd-teledrive-android Logo">
+  <img src="logo-drive.png" width="130" height="130" alt="Awd TeleDrive Android Logo">
 </p>
 
 <p align="center">
@@ -14,15 +14,15 @@
   <img src="https://img.shields.io/badge/Architecture-MVI--Clean-orange?style=flat-square" alt="MVI Clean Architecture">
 </p>
 
-**awd-teledrive-android** is an innovative Android application that transforms your Telegram account into an unlimited, secure personal cloud storage drive. Manage files, automate background backups, and navigate your media directory through a modern Material 3 interface built entirely with Jetpack Compose.
+**Awd TeleDrive Android** is an innovative Android application that transforms your Telegram account into an unlimited, secure personal cloud storage drive. Manage files, automate background backups, and navigate your media directory through a modern Material 3 interface built entirely with Jetpack Compose.
 
 ---
 
 ## 🌐 Teledrive Ecosystem
 This application is part of a cross-platform ecosystem designed to turn Telegram into your personal unlimited cloud storage:
-*   **📱 [awd-teledrive-android](https://github.com/putuwahyu29/awd-teledrive-android)**: Secure Android file manager and backup tool.
-*   **💻 [awd-teledrive-desktop](https://github.com/putuwahyu29/awd-teledrive-desktop)**: High-performance Wails (Go) + React desktop client with two-way sync, local decryption, and Cloudflare Web Sharing.
-*   **📸 [awd-telephoto-android](https://github.com/putuwahyu29/awd-telephoto-android)**: Companion app for client-side encrypted photo/video backup.
+*   **📱 [Awd TeleDrive Android](https://github.com/putuwahyu29/awd-teledrive-android)**: Secure Android file manager and backup tool.
+*   **💻 [Awd TeleDrive Desktop](https://github.com/putuwahyu29/awd-teledrive-desktop)**: High-performance Wails (Go) + React desktop client with two-way sync, local decryption, and Cloudflare Web Sharing.
+*   **📸 [Awd TelePhoto Android](https://github.com/putuwahyu29/awd-telephoto-android)**: Companion app for client-side encrypted photo/video backup.
 
 ---
 
@@ -72,7 +72,7 @@ This application is part of a cross-platform ecosystem designed to turn Telegram
 
 ## 📊 Feature Comparison Matrix
 
-| Feature | 📱 awd-teledrive-android | 💻 awd-teledrive-desktop | 📸 awd-telephoto-android |
+| Feature | 📱 Awd TeleDrive Android | 💻 Awd TeleDrive Desktop | 📸 Awd TelePhoto Android |
 | :--- | :---: | :---: | :---: |
 | **Unlimited Cloud Storage** | Yes (Up to 2GB per file) | Yes (Any file size) | Yes (Photos & Videos) |
 | **File & Folder Manager** | Yes | Yes | Gallery View only |
@@ -102,12 +102,12 @@ All persistent data, cached sessions, and databases are stored securely in Andro
 *   An Android device running Android 8.0 (API 26) or higher.
 
 ### How to Obtain Telegram API Credentials
-awd-teledrive-android requires your own API credentials to connect with Telegram's servers. This is free and takes less than 2 minutes:
+Awd TeleDrive Android requires your own API credentials to connect with Telegram's servers. This is free and takes less than 2 minutes:
 1. Go to [my.telegram.org](https://my.telegram.org/) and log in with your phone number.
 2. Select **API development tools**.
 3. Fill in the form (App title and short name of your choice).
 4. Copy the **App api_id** and **App api_hash**.
-5. Input these values in the configuration screen of the awd-teledrive-android app.
+5. Input these values in the configuration screen of the Awd TeleDrive Android app.
 
 > [!NOTE]
 > These credentials remain strictly local. The application communicates directly with Telegram's endpoints and does not send your data to any third-party servers.
@@ -174,8 +174,8 @@ Ensure you have the latest Android Studio installed.
 
 ## ⚙️ Troubleshooting
 
-*   **WorkManager Sync Delays**: Android may postpone background synchronization to conserve battery. You can disable battery optimizations for awd-teledrive-android in the Android Settings panel to resolve this.
-*   **TDLib Initialization Errors**: Ensure your device has enough free space. If corruption occurs, clear the application cache from Settings ➡️ Apps ➡️ awd-teledrive-android ➡️ Clear Data.
+*   **WorkManager Sync Delays**: Android may postpone background synchronization to conserve battery. You can disable battery optimizations for Awd TeleDrive Android in the Android Settings panel to resolve this.
+*   **TDLib Initialization Errors**: Ensure your device has enough free space. If corruption occurs, clear the application cache from Settings ➡️ Apps ➡️ Awd TeleDrive Android ➡️ Clear Data.
 *   **OTP Verification Fails**: Double-check that your `api_id` and `api_hash` match the credentials generated on `my.telegram.org`.
 
 ---
