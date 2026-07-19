@@ -1,7 +1,6 @@
 package com.awd.teledrive.data.local
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "drive_items",

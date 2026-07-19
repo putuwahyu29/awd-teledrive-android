@@ -1,7 +1,6 @@
 package com.awd.teledrive.ui.screens.transfers
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.awd.teledrive.data.model.TransferInfo
 import com.awd.teledrive.data.repository.TransferRepository
 import dagger.hilt.android.lifecycle.HiltViewModel

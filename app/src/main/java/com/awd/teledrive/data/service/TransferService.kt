@@ -6,13 +6,13 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.awd.teledrive.MainActivity
 import com.awd.teledrive.R
 import com.awd.teledrive.data.repository.TransferRepository
-import android.content.pm.ServiceInfo
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

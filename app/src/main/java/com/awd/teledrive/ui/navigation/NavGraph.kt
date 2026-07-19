@@ -2,8 +2,16 @@ package com.awd.teledrive.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PermMedia
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -22,10 +30,11 @@ import androidx.navigation.navArgument
 import com.awd.teledrive.R
 import com.awd.teledrive.ui.screens.auth.LoginScreen
 import com.awd.teledrive.ui.screens.home.HomeScreen
+import com.awd.teledrive.ui.screens.logs.LogsScreen
 import com.awd.teledrive.ui.screens.media.MediaScreen
 import com.awd.teledrive.ui.screens.preview.PdfViewerScreen
-import com.awd.teledrive.ui.screens.preview.TextViewerScreen
 import com.awd.teledrive.ui.screens.preview.PreviewScreen
+import com.awd.teledrive.ui.screens.preview.TextViewerScreen
 import com.awd.teledrive.ui.screens.preview.VideoPlayerScreen
 import com.awd.teledrive.ui.screens.security.MasterPasswordScreen
 import com.awd.teledrive.ui.screens.security.SecurityViewModel
@@ -33,7 +42,6 @@ import com.awd.teledrive.ui.screens.settings.BackupSettingsScreen
 import com.awd.teledrive.ui.screens.settings.SettingsScreen
 import com.awd.teledrive.ui.screens.starred.StarredScreen
 import com.awd.teledrive.ui.screens.transfers.TransfersScreen
-import com.awd.teledrive.ui.screens.logs.LogsScreen
 import java.net.URLDecoder
 import java.net.URLEncoder
 

@@ -1,8 +1,8 @@
 package com.awd.teledrive.core
 
 import androidx.biometric.BiometricPrompt
-import androidx.fragment.app.FragmentActivity
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 
 object BiometricHelper {
     fun showPrompt(

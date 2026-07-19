@@ -6,8 +6,11 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import android.webkit.MimeTypeMap
+import androidx.documentfile.provider.DocumentFile
 import com.awd.teledrive.data.model.TransferInfo
 import com.awd.teledrive.data.remote.TelegramClient
+import com.awd.teledrive.data.secure.SecureSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,9 +18,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import android.webkit.MimeTypeMap
-import androidx.documentfile.provider.DocumentFile
-import com.awd.teledrive.data.secure.SecureSettings
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream

@@ -10,10 +10,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalConfiguration
-import com.awd.teledrive.ui.screens.settings.SettingsViewModel
-import java.util.Locale
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -23,6 +23,7 @@ import com.awd.teledrive.data.secure.SecureSettings
 import com.awd.teledrive.data.worker.TeleDriveWorkerManager
 import com.awd.teledrive.ui.navigation.NavGraph
 import com.awd.teledrive.ui.screens.security.SecurityViewModel
+import com.awd.teledrive.ui.screens.settings.SettingsViewModel
 import com.awd.teledrive.ui.theme.TeledriveTheme
 import com.awd.teledrive.ui.theme.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint

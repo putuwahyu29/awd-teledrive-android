@@ -3,7 +3,8 @@ package com.awd.teledrive.core.logging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 object AppLog {
     private val _logs = MutableStateFlow<List<String>>(emptyList())

@@ -2,6 +2,7 @@ package com.awd.teledrive.data.repository
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import com.awd.teledrive.data.local.DriveDao
 import com.awd.teledrive.data.local.DriveItemEntity
@@ -15,16 +16,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import javax.inject.Singleton
-
-import android.os.Build
-import com.awd.teledrive.core.MimeTypeHelper
 
 @Singleton
 class DriveRepository @Inject constructor(
@@ -58,8 +55,12 @@ class DriveRepository @Inject constructor(
 
                     if (uniqueId.isNotEmpty()) {
                         driveDao.updateLocalPathByUniqueId(uniqueId, file.local.path)
-                        // Update thumbnail path - DAO query handles both main file (if image) and dedicated thumbnail files
-                        driveDao.updateThumbnailPathByUniqueId(uniqueId, file.local.path)
+                        
+                        // Only use local path as thumbnail if it's an image
+                        val entity = driveDao.getItemByUniqueId(uniqueId)
+                        if (entity?.mimeType?.startsWith("image/") == true) {
+                            driveDao.updateThumbnailPathByUniqueId(uniqueId, file.local.path)
+                        }
                     }
                     // Update by fileId as well to be sure
                     driveDao.updateLocalPath(fileId, file.local.path)
@@ -156,18 +157,17 @@ class DriveRepository @Inject constructor(
                                 telegramClient.send(TdApi.DownloadFile(thumb.file.id, 1, 0, 0, false))
                             }
                             val docFile = content.document.document
-                            val resolvedMimeType = MimeTypeHelper.resolveMimeType(content.document.fileName, content.document.mimeType)
                             DriveItemEntity(
                                 id = message.id,
                                 name = content.document.fileName,
                                 size = docFile.expectedSize,
-                                mimeType = resolvedMimeType,
+                                mimeType = content.document.mimeType,
                                 telegramFileId = docFile.id,
                                 parentChatId = chatId,
                                 isFolder = false,
                                 thumbnailPath = when {
                                     thumb?.file?.local?.path?.isNotEmpty() == true -> thumb.file.local.path
-                                    resolvedMimeType.startsWith("image/") && docFile.local.path.isNotEmpty() -> docFile.local.path
+                                    content.document.mimeType.startsWith("image/") && docFile.local.path.isNotEmpty() -> docFile.local.path
                                     else -> null
                                 },
                                 localPath = docFile.local.path.takeIf { it.isNotEmpty() },
@@ -210,12 +210,11 @@ class DriveRepository @Inject constructor(
                                 telegramClient.send(TdApi.DownloadFile(thumb.file.id, 1, 0, 0, false))
                             }
                             val videoFile = content.video.video
-                            val resolvedMimeType = MimeTypeHelper.resolveMimeType(content.video.fileName, content.video.mimeType)
                             DriveItemEntity(
                                 id = message.id,
                                 name = content.video.fileName,
                                 size = videoFile.expectedSize,
-                                mimeType = resolvedMimeType,
+                                mimeType = content.video.mimeType,
                                 telegramFileId = videoFile.id,
                                 parentChatId = chatId,
                                 isFolder = false,
@@ -230,12 +229,11 @@ class DriveRepository @Inject constructor(
                         }
                         is TdApi.MessageAudio -> {
                             val audioFile = content.audio.audio
-                            val fileName = content.audio.fileName.ifEmpty { "Audio_${message.id}.mp3" }
                             DriveItemEntity(
                                 id = message.id,
-                                name = fileName,
+                                name = content.audio.fileName.ifEmpty { "Audio_${message.id}.mp3" },
                                 size = audioFile.expectedSize,
-                                mimeType = MimeTypeHelper.resolveMimeType(fileName, content.audio.mimeType),
+                                mimeType = content.audio.mimeType,
                                 telegramFileId = audioFile.id,
                                 parentChatId = chatId,
                                 isFolder = false,
