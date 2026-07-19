@@ -18,7 +18,9 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
+import com.awd.teledrive.data.repository.UpdateRepository
 import com.awd.teledrive.data.secure.SecureSettings
 import com.awd.teledrive.data.worker.TeleDriveWorkerManager
 import com.awd.teledrive.ui.navigation.NavGraph
@@ -27,6 +29,7 @@ import com.awd.teledrive.ui.screens.settings.SettingsViewModel
 import com.awd.teledrive.ui.theme.TeledriveTheme
 import com.awd.teledrive.ui.theme.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -37,6 +40,9 @@ class MainActivity : AppCompatActivity() {
     
     @Inject
     lateinit var secureSettings: SecureSettings
+    
+    @Inject
+    lateinit var updateRepository: UpdateRepository
     
     private val securityViewModel: SecurityViewModel by viewModels()
     private var lastPauseTime: Long = 0
@@ -69,6 +75,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         checkAndRequestPermissions()
+        
+        // Trigger update check once
+        lifecycleScope.launch {
+            updateRepository.checkForUpdates(manual = false)
+        }
         
         // Safety: Cancel all previous work to prevent crashes from old task versions
         try {

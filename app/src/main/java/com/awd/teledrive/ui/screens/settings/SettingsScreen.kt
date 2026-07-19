@@ -60,6 +60,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.awd.teledrive.R
+import com.awd.teledrive.data.repository.SettingsRepository
+import com.awd.teledrive.data.repository.UpdateState
 import com.awd.teledrive.ui.screens.home.HomeViewModel
 import com.awd.teledrive.ui.screens.security.SecurityViewModel
 import com.awd.teledrive.ui.theme.TeledriveTheme
@@ -75,10 +77,15 @@ data class SettingsUiState(
     val isBiometricEnabled: Boolean,
     val totalStorageUsed: Long,
     val internalCacheSize: Long,
+    val cacheSizeLimit: Long,
+    val cacheAgeLimit: Int,
     val isAutoBackupEnabled: Boolean,
     val lastBackupTime: Long,
     val currentLanguage: String,
-    val downloadUri: String?
+    val downloadUri: String?,
+    val versionName: String,
+    val versionCode: Long,
+    val updateState: UpdateState
 )
 
 @Composable
@@ -98,10 +105,13 @@ fun SettingsScreen(
     val isBiometricEnabled by securityViewModel.isBiometricEnabled.collectAsState()
     val totalStorageUsed by homeViewModel.totalStorageUsed.collectAsState()
     val internalCacheSize by viewModel.internalCacheSize.collectAsState()
+    val cacheSizeLimit by viewModel.cacheSizeLimit.collectAsState()
+    val cacheAgeLimit by viewModel.cacheAgeLimit.collectAsState()
     val isAutoBackupEnabled by backupViewModel.isAutoBackupEnabled.collectAsState()
     val lastBackupTime by backupViewModel.lastBackupTime.collectAsState()
     val currentLanguage by viewModel.currentLanguage.collectAsState()
     val downloadUri by viewModel.downloadUri.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
 
     val context = LocalContext.current
 
@@ -112,10 +122,15 @@ fun SettingsScreen(
         isBiometricEnabled = isBiometricEnabled,
         totalStorageUsed = totalStorageUsed,
         internalCacheSize = internalCacheSize,
+        cacheSizeLimit = cacheSizeLimit,
+        cacheAgeLimit = cacheAgeLimit,
         isAutoBackupEnabled = isAutoBackupEnabled,
         lastBackupTime = lastBackupTime,
         currentLanguage = currentLanguage,
-        downloadUri = downloadUri
+        downloadUri = downloadUri,
+        versionName = viewModel.versionName,
+        versionCode = viewModel.versionCode,
+        updateState = updateState
     )
 
     SettingsContent(
@@ -139,7 +154,11 @@ fun SettingsScreen(
         onNavigateToLogs = onNavigateToLogs,
         onClearCache = viewModel::clearCache,
         onSetLanguage = viewModel::setLanguage,
-        onSetDownloadUri = viewModel::setDownloadUri
+        onSetDownloadUri = viewModel::setDownloadUri,
+        onSetCacheSizeLimit = viewModel::setCacheSizeLimit,
+        onSetCacheAgeLimit = viewModel::setCacheAgeLimit,
+        onCheckForUpdates = viewModel::checkForUpdates,
+        onDismissUpdateDialog = viewModel::resetUpdateState
     )
 }
 
@@ -159,11 +178,17 @@ fun SettingsContent(
     onNavigateToLogs: () -> Unit,
     onClearCache: () -> Unit,
     onSetLanguage: (String) -> Unit,
-    onSetDownloadUri: (String?) -> Unit
+    onSetDownloadUri: (String?) -> Unit,
+    onSetCacheSizeLimit: (Long) -> Unit,
+    onSetCacheAgeLimit: (Int) -> Unit,
+    onCheckForUpdates: () -> Unit,
+    onDismissUpdateDialog: () -> Unit
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showSetPasswordConfirm by remember { mutableStateOf(false) }
     var showLanguageRestartConfirm by remember { mutableStateOf(false) }
+    var showCacheSizeDialog by remember { mutableStateOf(false) }
+    var showCacheAgeDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -308,6 +333,54 @@ fun SettingsContent(
                             if (uiState.currentLanguage == "id" || uiState.currentLanguage == "in") Icon(Icons.Default.Check, null)
                         }
                     )
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    if (showCacheSizeDialog) {
+        AlertDialog(
+            onDismissRequest = { showCacheSizeDialog = false },
+            title = { Text("Batas Ukuran Cache") },
+            text = {
+                Column {
+                    SettingsRepository.CACHE_SIZE_OPTIONS.forEach { option: Long ->
+                        ListItem(
+                            headlineContent = { Text(if (option == 0L) "Tanpa Batas" else formatSize(option)) },
+                            modifier = Modifier.clickable {
+                                onSetCacheSizeLimit(option)
+                                showCacheSizeDialog = false
+                            },
+                            trailingContent = {
+                                if (uiState.cacheSizeLimit == option) Icon(Icons.Default.Check, null)
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    if (showCacheAgeDialog) {
+        AlertDialog(
+            onDismissRequest = { showCacheAgeDialog = false },
+            title = { Text("Batas Umur Media") },
+            text = {
+                Column {
+                    SettingsRepository.CACHE_AGE_OPTIONS.forEach { option: Int ->
+                        ListItem(
+                            headlineContent = { Text(formatCacheAge(option)) },
+                            modifier = Modifier.clickable {
+                                onSetCacheAgeLimit(option)
+                                showCacheAgeDialog = false
+                            },
+                            trailingContent = {
+                                if (uiState.cacheAgeLimit == option) Icon(Icons.Default.Check, null)
+                            }
+                        )
+                    }
                 }
             },
             confirmButton = {}
@@ -487,6 +560,7 @@ fun SettingsContent(
                 title = stringResource(R.string.cloud_usage),
                 subtitle = stringResource(R.string.cloud_usage_subtitle, formatSize(uiState.totalStorageUsed))
             )
+            
             SettingsClickableRow(
                 icon = Icons.Default.Storage,
                 title = stringResource(R.string.internal_cache),
@@ -495,9 +569,42 @@ fun SettingsContent(
                     showClearCacheConfirm = true
                 }
             )
+
+            SettingsClickableRow(
+                icon = Icons.Default.Storage,
+                title = "Batas Ukuran Cache",
+                subtitle = if (uiState.cacheSizeLimit == 0L) "Tanpa Batas" else formatSize(uiState.cacheSizeLimit),
+                onClick = { showCacheSizeDialog = true }
+            )
+
+            SettingsClickableRow(
+                icon = Icons.Default.History,
+                title = "Batas Umur Media",
+                subtitle = formatCacheAge(uiState.cacheAgeLimit),
+                onClick = { showCacheAgeDialog = true }
+            )
             
             Spacer(modifier = Modifier.height(32.dp))
             
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Awd TeleDrive",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Versi ${uiState.versionName} (${uiState.versionCode})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = onCheckForUpdates) {
+                    Text("Cari Pembaruan")
+                }
+            }
+
             ListItem(
                 headlineContent = { 
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -509,6 +616,47 @@ fun SettingsContent(
             
             Spacer(modifier = Modifier.height(64.dp))
         }
+    }
+
+    // Handle Update Dialog
+    when (val state = uiState.updateState) {
+        is UpdateState.NewVersionAvailable -> {
+            AlertDialog(
+                onDismissRequest = onDismissUpdateDialog,
+                title = { Text("Pembaruan Tersedia: ${state.release.name}") },
+                text = { 
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        Text(state.release.body)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(state.release.html_url))
+                        context.startActivity(intent)
+                        onDismissUpdateDialog()
+                    }) {
+                        Text("Buka Browser")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismissUpdateDialog) {
+                        Text("Nanti")
+                    }
+                }
+            )
+        }
+        is UpdateState.Error -> {
+            Toast.makeText(context, "Error: ${state.message}", Toast.LENGTH_SHORT).show()
+            onDismissUpdateDialog()
+        }
+        is UpdateState.UpToDate -> {
+            Toast.makeText(context, "Aplikasi sudah menggunakan versi terbaru", Toast.LENGTH_SHORT).show()
+            onDismissUpdateDialog()
+        }
+        UpdateState.Checking -> {
+            // Show some indicator if needed, but for now we skip to keep it simple
+        }
+        UpdateState.Idle -> {}
     }
 }
 
@@ -524,10 +672,15 @@ fun SettingsPreview() {
                 isBiometricEnabled = true,
                 totalStorageUsed = 1024 * 1024 * 100,
                 internalCacheSize = 1024 * 1024 * 50,
+                cacheSizeLimit = 512 * 1024 * 1024L,
+                cacheAgeLimit = 30 * 24 * 60 * 60,
                 isAutoBackupEnabled = true,
                 lastBackupTime = System.currentTimeMillis(),
                 currentLanguage = "en",
-                downloadUri = null
+                downloadUri = null,
+                versionName = "1.0.0",
+                versionCode = 1L,
+                updateState = UpdateState.Idle
             ),
             onBack = {},
             onLogout = {},
@@ -541,7 +694,11 @@ fun SettingsPreview() {
             onNavigateToLogs = {},
             onClearCache = {},
             onSetLanguage = {},
-            onSetDownloadUri = {}
+            onSetDownloadUri = {},
+            onSetCacheSizeLimit = {},
+            onSetCacheAgeLimit = {},
+            onCheckForUpdates = {},
+            onDismissUpdateDialog = {}
         )
     }
 }
@@ -604,4 +761,15 @@ private fun formatSize(size: Long): String {
     val units = arrayOf("B", "KB", "MB", "GB", "TB")
     val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
     return String.format(java.util.Locale.getDefault(), "%.1f %s", size / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
+}
+
+private fun formatCacheAge(seconds: Int): String {
+    return when (seconds) {
+        0 -> "Selamanya"
+        7 * 24 * 60 * 60 -> "1 Minggu"
+        30 * 24 * 60 * 60 -> "1 Bulan"
+        90 * 24 * 60 * 60 -> "3 Bulan"
+        365 * 24 * 60 * 60 -> "1 Tahun"
+        else -> "$seconds detik"
+    }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import com.awd.teledrive.core.Config
 import com.awd.teledrive.data.remote.TelegramClient
 import com.awd.teledrive.data.secure.SecureSettings
+import com.awd.teledrive.data.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ import javax.inject.Singleton
 class AuthRepository @Inject constructor(
     private val telegramClient: TelegramClient,
     private val secureSettings: SecureSettings,
+    private val settingsRepository: SettingsRepository,
     @param:ApplicationContext private val context: Context,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -103,6 +105,8 @@ class AuthRepository @Inject constructor(
                 _authError.value = result.message
             } else {
                 _authError.value = null
+                // Apply cache settings once parameters are set
+                settingsRepository.applyCacheSettings()
             }
         }
     }

@@ -5,8 +5,12 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.awd.teledrive.core.utils.VersionUtils
 import com.awd.teledrive.data.repository.AuthRepository
 import com.awd.teledrive.data.repository.DriveRepository
+import com.awd.teledrive.data.repository.SettingsRepository
+import com.awd.teledrive.data.repository.UpdateRepository
+import com.awd.teledrive.data.repository.UpdateState
 import com.awd.teledrive.data.secure.SecureSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -15,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
 
@@ -22,12 +27,26 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val driveRepository: DriveRepository,
+    private val settingsRepository: SettingsRepository,
+    private val updateRepository: UpdateRepository,
     private val secureSettings: SecureSettings,
     @param:ApplicationContext private val context: Context
 ) : ViewModel() {
     
     val internalCacheSize: StateFlow<Long> = driveRepository.getInternalCacheSize()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val cacheSizeLimit = settingsRepository.cacheSizeLimit
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_CACHE_SIZE)
+
+    val cacheAgeLimit = settingsRepository.cacheAgeLimit
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_CACHE_AGE)
+
+    val updateState = updateRepository.updateState
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UpdateState.Idle)
+
+    val versionName = VersionUtils.getVersionName(context)
+    val versionCode = VersionUtils.getVersionCode(context)
 
     private val _currentLanguage = MutableStateFlow(
         secureSettings.getString("app_language") ?: 
@@ -72,7 +91,27 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun clearCache() {
-        driveRepository.clearInternalCache()
-        // Refresh cache size immediately
+        settingsRepository.clearCacheAggrersively {
+            // After clearing, we might want to refresh UI or drive info
+            driveRepository.fetchFiles()
+        }
+    }
+
+    fun setCacheSizeLimit(limit: Long) {
+        settingsRepository.setCacheSizeLimit(limit)
+    }
+
+    fun setCacheAgeLimit(limitSeconds: Int) {
+        settingsRepository.setCacheAgeLimit(limitSeconds)
+    }
+
+    fun checkForUpdates() {
+        viewModelScope.launch {
+            updateRepository.checkForUpdates(manual = true)
+        }
+    }
+
+    fun resetUpdateState() {
+        updateRepository.resetState()
     }
 }
