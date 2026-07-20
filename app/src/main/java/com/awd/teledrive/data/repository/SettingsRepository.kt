@@ -30,6 +30,15 @@ class SettingsRepository @Inject constructor(
     private val _cacheAgeLimit = MutableStateFlow(secureSettings.getInt(KEY_CACHE_AGE_LIMIT, DEFAULT_CACHE_AGE))
     val cacheAgeLimit = _cacheAgeLimit.asStateFlow()
 
+    private val _isThumbnailAutoDownloadEnabled = MutableStateFlow(secureSettings.getBoolean(KEY_THUMBNAIL_AUTO_DOWNLOAD, true))
+    val isThumbnailAutoDownloadEnabled = _isThumbnailAutoDownloadEnabled.asStateFlow()
+
+    private val _isBackupWifiOnlyEnabled = MutableStateFlow(secureSettings.getBoolean(KEY_BACKUP_WIFI_ONLY, true))
+    val isBackupWifiOnlyEnabled = _isBackupWifiOnlyEnabled.asStateFlow()
+
+    private val _isAutoBackupEnabled = MutableStateFlow(secureSettings.getBoolean(KEY_AUTO_BACKUP, false))
+    val isAutoBackupEnabled = _isAutoBackupEnabled.asStateFlow()
+
     fun setCacheSizeLimit(limitBytes: Long) {
         secureSettings.saveLong(KEY_CACHE_SIZE_LIMIT, limitBytes)
         _cacheSizeLimit.value = limitBytes
@@ -40,6 +49,21 @@ class SettingsRepository @Inject constructor(
         secureSettings.saveInt(KEY_CACHE_AGE_LIMIT, limitSeconds)
         _cacheAgeLimit.value = limitSeconds
         applyCacheSettings()
+    }
+
+    fun setThumbnailAutoDownloadEnabled(enabled: Boolean) {
+        secureSettings.saveBoolean(KEY_THUMBNAIL_AUTO_DOWNLOAD, enabled)
+        _isThumbnailAutoDownloadEnabled.value = enabled
+    }
+
+    fun setBackupWifiOnlyEnabled(enabled: Boolean) {
+        secureSettings.saveBoolean(KEY_BACKUP_WIFI_ONLY, enabled)
+        _isBackupWifiOnlyEnabled.value = enabled
+    }
+
+    fun setAutoBackupEnabled(enabled: Boolean) {
+        secureSettings.saveBoolean(KEY_AUTO_BACKUP, enabled)
+        _isAutoBackupEnabled.value = enabled
     }
 
     /**
@@ -187,6 +211,9 @@ class SettingsRepository @Inject constructor(
     companion object {
         const val KEY_CACHE_SIZE_LIMIT = "cache_size_limit"
         const val KEY_CACHE_AGE_LIMIT = "cache_age_limit"
+        const val KEY_THUMBNAIL_AUTO_DOWNLOAD = "thumbnail_auto_download"
+        const val KEY_BACKUP_WIFI_ONLY = "backup_wifi_only"
+        const val KEY_AUTO_BACKUP = "auto_backup_enabled"
 
         // Default: 512MB
         const val DEFAULT_CACHE_SIZE = 512 * 1024 * 1024L

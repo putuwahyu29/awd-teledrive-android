@@ -30,10 +30,13 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,7 +49,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -96,6 +101,7 @@ fun SettingsScreen(
     onNavigateToBackupFolders: () -> Unit,
     onNavigateToLogs: () -> Unit,
     onNavigateToCacheDetails: () -> Unit,
+    onNavigateToCloudAnalysis: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
     themeViewModel: ThemeViewModel = hiltViewModel(),
     securityViewModel: SecurityViewModel = hiltViewModel(),
@@ -111,12 +117,24 @@ fun SettingsScreen(
     val cacheSizeLimit by viewModel.cacheSizeLimit.collectAsState()
     val cacheAgeLimit by viewModel.cacheAgeLimit.collectAsState()
     val isAutoBackupEnabled by backupViewModel.isAutoBackupEnabled.collectAsState()
+    val isBackupWifiOnly by backupViewModel.isBackupWifiOnly.collectAsState()
     val lastBackupTime by backupViewModel.lastBackupTime.collectAsState()
     val currentLanguage by viewModel.currentLanguage.collectAsState()
     val downloadUri by viewModel.downloadUri.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
+    val isThumbnailAutoDownloadEnabled by viewModel.isThumbnailAutoDownloadEnabled.collectAsState()
 
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        backupViewModel.feedback.collect { feedback ->
+            val msg = when (feedback) {
+                BackupFeedback.NoFolders -> context.getString(R.string.no_backup_folders)
+                BackupFeedback.Starting -> context.getString(R.string.backup_starting)
+            }
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val uiState = SettingsUiState(
         isDarkMode = isDarkMode ?: isSystemInDarkTheme(),
@@ -138,6 +156,8 @@ fun SettingsScreen(
 
     SettingsContent(
         uiState = uiState,
+        isThumbnailAutoDownloadEnabled = isThumbnailAutoDownloadEnabled,
+        isBackupWifiOnly = isBackupWifiOnly,
         onBack = onBack,
         onLogout = {
             viewModel.logout()
@@ -149,11 +169,13 @@ fun SettingsScreen(
         },
         onNavigateToBackupFolders = onNavigateToBackupFolders,
         onNavigateToCacheDetails = onNavigateToCacheDetails,
+        onNavigateToCloudAnalysis = onNavigateToCloudAnalysis,
         onSetDarkMode = { themeViewModel.setDarkMode(it) },
         onSetThemeColor = { themeViewModel.setThemeColor(it) },
         onSetSecurityEnabled = { securityViewModel.setSecurityEnabled(it) },
         onSetBiometricEnabled = { securityViewModel.setBiometricEnabled(it) },
         onSetAutoBackupEnabled = { backupViewModel.setAutoBackupEnabled(it) },
+        onSetBackupWifiOnly = { backupViewModel.setBackupWifiOnly(it) },
         onTriggerManualBackup = { backupViewModel.triggerManualBackup() },
         onNavigateToLogs = onNavigateToLogs,
         onClearCache = viewModel::clearCache,
@@ -161,6 +183,7 @@ fun SettingsScreen(
         onSetDownloadUri = viewModel::setDownloadUri,
         onSetCacheSizeLimit = viewModel::setCacheSizeLimit,
         onSetCacheAgeLimit = viewModel::setCacheAgeLimit,
+        onSetThumbnailAutoDownload = viewModel::setThumbnailAutoDownloadEnabled,
         onCheckForUpdates = viewModel::checkForUpdates,
         onDismissUpdateDialog = viewModel::resetUpdateState
     )
@@ -170,15 +193,19 @@ fun SettingsScreen(
 @Composable
 fun SettingsContent(
     uiState: SettingsUiState,
+    isThumbnailAutoDownloadEnabled: Boolean,
+    isBackupWifiOnly: Boolean,
     onBack: () -> Unit,
     onLogout: () -> Unit,
     onNavigateToBackupFolders: () -> Unit,
     onNavigateToCacheDetails: () -> Unit,
+    onNavigateToCloudAnalysis: () -> Unit,
     onSetDarkMode: (Boolean) -> Unit,
     onSetThemeColor: (Color) -> Unit,
     onSetSecurityEnabled: (Boolean) -> Unit,
     onSetBiometricEnabled: (Boolean) -> Unit,
     onSetAutoBackupEnabled: (Boolean) -> Unit,
+    onSetBackupWifiOnly: (Boolean) -> Unit,
     onTriggerManualBackup: () -> Unit,
     onNavigateToLogs: () -> Unit,
     onClearCache: () -> Unit,
@@ -186,6 +213,7 @@ fun SettingsContent(
     onSetDownloadUri: (String?) -> Unit,
     onSetCacheSizeLimit: (Long) -> Unit,
     onSetCacheAgeLimit: (Int) -> Unit,
+    onSetThumbnailAutoDownload: (Boolean) -> Unit,
     onCheckForUpdates: () -> Unit,
     onDismissUpdateDialog: () -> Unit
 ) {
@@ -416,6 +444,14 @@ fun SettingsContent(
                     showThemeRestartConfirm = true
                 }
             )
+
+            SettingsToggleRow(
+                icon = Icons.Default.PhotoLibrary,
+                title = stringResource(R.string.auto_download_thumbnails),
+                subtitle = stringResource(R.string.auto_download_thumbnails_desc),
+                checked = isThumbnailAutoDownloadEnabled,
+                onCheckedChange = onSetThumbnailAutoDownload
+            )
             
             Text(
                 text = stringResource(R.string.theme_color),
@@ -503,10 +539,12 @@ fun SettingsContent(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SettingsCategory(title = stringResource(R.string.storage))
-            SettingsRow(
+            
+            SettingsClickableRow(
                 icon = Icons.Default.Cloud,
                 title = stringResource(R.string.cloud_usage),
-                subtitle = stringResource(R.string.cloud_usage_subtitle, formatSize(uiState.totalStorageUsed))
+                subtitle = stringResource(R.string.cloud_usage_subtitle, formatSize(uiState.totalStorageUsed)),
+                onClick = onNavigateToCloudAnalysis
             )
             
             SettingsClickableRow(
@@ -532,6 +570,21 @@ fun SettingsContent(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SettingsCategory(title = stringResource(R.string.backup_settings))
+            SettingsToggleRow(
+                icon = Icons.Default.Folder,
+                title = stringResource(R.string.auto_backup),
+                subtitle = if (isBackupWifiOnly && uiState.isAutoBackupEnabled) stringResource(R.string.waiting_for_wifi) else stringResource(R.string.backup_description),
+                checked = uiState.isAutoBackupEnabled,
+                onCheckedChange = onSetAutoBackupEnabled
+            )
+            SettingsToggleRow(
+                icon = Icons.Default.Wifi,
+                title = stringResource(R.string.backup_wifi_only),
+                subtitle = stringResource(R.string.backup_wifi_only_desc),
+                checked = isBackupWifiOnly,
+                enabled = uiState.isAutoBackupEnabled,
+                onCheckedChange = onSetBackupWifiOnly
+            )
             SettingsClickableRow(
                 icon = Icons.Default.Folder,
                 title = stringResource(R.string.backup_folders),
@@ -678,15 +731,19 @@ fun SettingsPreview() {
                 versionCode = 1L,
                 updateState = UpdateState.Idle
             ),
+            isThumbnailAutoDownloadEnabled = true,
+            isBackupWifiOnly = true,
             onBack = {},
             onLogout = {},
             onNavigateToBackupFolders = {},
             onNavigateToCacheDetails = {},
+            onNavigateToCloudAnalysis = {},
             onSetDarkMode = {},
             onSetThemeColor = {},
             onSetSecurityEnabled = {},
             onSetBiometricEnabled = {},
             onSetAutoBackupEnabled = {},
+            onSetBackupWifiOnly = {},
             onTriggerManualBackup = {},
             onNavigateToLogs = {},
             onClearCache = {},
@@ -694,6 +751,7 @@ fun SettingsPreview() {
             onSetDownloadUri = {},
             onSetCacheSizeLimit = {},
             onSetCacheAgeLimit = {},
+            onSetThumbnailAutoDownload = {},
             onCheckForUpdates = {},
             onDismissUpdateDialog = {}
         )

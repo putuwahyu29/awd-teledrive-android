@@ -19,7 +19,8 @@ import javax.inject.Singleton
 @Singleton
 class TeleDriveWorkerManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val secureSettings: SecureSettings
+    private val secureSettings: SecureSettings,
+    private val settingsRepository: com.awd.teledrive.data.repository.SettingsRepository
 ) {
     fun scheduleBackup(enabled: Boolean) {
         try {
@@ -32,12 +33,15 @@ class TeleDriveWorkerManager @Inject constructor(
             val data = Data.Builder()
                 .putLong("last_backup_time", lastBackupTime)
                 .build()
+                
+            val isWifiOnly = settingsRepository.isBackupWifiOnlyEnabled.value
+            val networkType = if (isWifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
 
             val backupRequest = PeriodicWorkRequestBuilder<MediaBackupWorker>(1, TimeUnit.HOURS)
                 .setInputData(data)
                 .setConstraints(
                     Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED) // Less restrictive for manual trigger
+                        .setRequiredNetworkType(networkType)
                         .setRequiresBatteryNotLow(true)
                         .build()
                 )
@@ -60,11 +64,14 @@ class TeleDriveWorkerManager @Inject constructor(
                 .putLong("last_backup_time", lastBackupTime)
                 .build()
 
+            val isWifiOnly = settingsRepository.isBackupWifiOnlyEnabled.value
+            val networkType = if (isWifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
+
             val backupRequest = OneTimeWorkRequestBuilder<MediaBackupWorker>()
                 .setInputData(data)
                 .setConstraints(
                     Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .setRequiredNetworkType(networkType)
                         .build()
                 )
                 .build()

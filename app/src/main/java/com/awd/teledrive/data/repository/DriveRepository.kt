@@ -29,6 +29,7 @@ import javax.inject.Singleton
 class DriveRepository @Inject constructor(
     private val telegramClient: TelegramClient,
     private val transferRepository: TransferRepository,
+    private val settingsRepository: SettingsRepository,
     private val driveDao: DriveDao,
     @param:ApplicationContext private val context: Context,
 ) {
@@ -172,7 +173,7 @@ class DriveRepository @Inject constructor(
                     when (val content = message.content) {
                         is TdApi.MessageDocument -> {
                             val thumb = content.document.thumbnail
-                            if (thumb != null && (thumb.file.local.path.isEmpty())) {
+                            if (thumb != null && thumb.file.local.path.isEmpty() && settingsRepository.isThumbnailAutoDownloadEnabled.value) {
                                 telegramClient.send(TdApi.DownloadFile(thumb.file.id, 1, 0, 0, false))
                             }
                             val docFile = content.document.document
@@ -201,7 +202,7 @@ class DriveRepository @Inject constructor(
                             val photo = content.photo.sizes.lastOrNull()
                             val thumb = if (content.photo.sizes.size > 1) content.photo.sizes.firstOrNull() else null
                             
-                            if (thumb != null && thumb.photo.local.path.isEmpty()) {
+                            if (thumb != null && thumb.photo.local.path.isEmpty() && settingsRepository.isThumbnailAutoDownloadEnabled.value) {
                                 telegramClient.send(TdApi.DownloadFile(thumb.photo.id, 1, 0, 0, false))
                             }
                             
@@ -225,7 +226,7 @@ class DriveRepository @Inject constructor(
                         }
                         is TdApi.MessageVideo -> {
                             val thumb = content.video.thumbnail
-                            if (thumb != null && thumb.file.local.path.isEmpty()) {
+                            if (thumb != null && thumb.file.local.path.isEmpty() && settingsRepository.isThumbnailAutoDownloadEnabled.value) {
                                 telegramClient.send(TdApi.DownloadFile(thumb.file.id, 1, 0, 0, false))
                             }
                             val videoFile = content.video.video
@@ -472,6 +473,10 @@ class DriveRepository @Inject constructor(
 
     fun getTotalStorageUsed(): Flow<Long> {
         return driveDao.getTotalSize().map { it ?: 0L }
+    }
+
+    fun getCloudFileTypeStats(): Flow<List<com.awd.teledrive.data.local.DriveDao.FileTypeStat>> {
+        return driveDao.getCloudFileTypeStats()
     }
 
     fun getInternalCacheSize(): Flow<Long> {

@@ -40,6 +40,7 @@ import com.awd.teledrive.ui.screens.security.MasterPasswordScreen
 import com.awd.teledrive.ui.screens.security.SecurityViewModel
 import com.awd.teledrive.ui.screens.settings.BackupSettingsScreen
 import com.awd.teledrive.ui.screens.settings.CacheDetailsScreen
+import com.awd.teledrive.ui.screens.settings.CloudAnalysisScreen
 import com.awd.teledrive.ui.screens.settings.SettingsScreen
 import com.awd.teledrive.ui.screens.starred.StarredScreen
 import com.awd.teledrive.ui.screens.transfers.TransfersScreen
@@ -55,6 +56,7 @@ sealed class Screen(val route: String, val icon: ImageVector? = null, val labelR
     object Transfers : Screen("transfers", Icons.Default.SwapVert, R.string.transfers)
     object Settings : Screen("settings", Icons.Default.Settings, R.string.settings)
     object CacheDetails : Screen("cache_details")
+    object CloudAnalysis : Screen("cloud_analysis")
     object Logs : Screen("logs")
     object BackupSettings : Screen("backup_settings")
     object Preview : Screen("preview/{chatId}/{fileId}?isMediaOnly={isMediaOnly}") {
@@ -191,11 +193,15 @@ fun NavGraph(navController: NavHostController) {
                     onBack = { navController.popBackStack() },
                     onNavigateToBackupFolders = { navController.navigate(Screen.BackupSettings.route) },
                     onNavigateToLogs = { navController.navigate(Screen.Logs.route) },
-                    onNavigateToCacheDetails = { navController.navigate(Screen.CacheDetails.route) }
+                    onNavigateToCacheDetails = { navController.navigate(Screen.CacheDetails.route) },
+                    onNavigateToCloudAnalysis = { navController.navigate(Screen.CloudAnalysis.route) }
                 )
             }
             composable(Screen.CacheDetails.route) {
                 CacheDetailsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.CloudAnalysis.route) {
+                CloudAnalysisScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.BackupSettings.route) {
                 BackupSettingsScreen(onBack = { navController.popBackStack() })

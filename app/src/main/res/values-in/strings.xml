@@ -187,4 +187,16 @@
     <string name="category_database_desc">File inti aplikasi dan data informasi file Anda.</string>
     <string name="category_media_files">Media &amp; File</string>
     <string name="category_media_files_desc">Foto, video, dan dokumen yang tersimpan di HP Anda untuk akses offline.</string>
+    <string name="auto_download_thumbnails">Unduh Thumbnail Otomatis</string>
+    <string name="auto_download_thumbnails_desc">Unduh pratinjau gambar secara otomatis saat menelusuri file.</string>
+    <string name="cloud_analysis">Analisis Penyimpanan Awan</string>
+    <string name="cloud_analysis_desc">Rincian mendalam file yang tersimpan di Telegram.</string>
+    <string name="category_images">Gambar</string>
+    <string name="items_count">%d item</string>
+    <string name="backup_wifi_only">Cadangkan hanya via Wi-Fi</string>
+    <string name="backup_wifi_only_desc">Tunda pencadangan saat menggunakan data seluler untuk hemat kuota.</string>
+    <string name="no_backup_folders">Tidak ada folder yang dipilih untuk dicadangkan</string>
+    <string name="backup_starting">Memulai pencadangan manual...</string>
+    <string name="waiting_for_wifi">Menunggu Wi-Fi untuk memulai pencadangan</string>
+    <string name="cloud_usage_desc">Lihat analisis mendalam file awan Anda.</string>
 </resources>

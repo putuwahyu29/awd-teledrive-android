@@ -90,4 +90,37 @@ interface DriveDao {
 
     @Query("SELECT SUM(size) FROM drive_items WHERE isFolder = 0")
     fun getTotalSize(): Flow<Long?>
+
+    data class FileTypeStat(
+        val category: String,
+        val count: Int,
+        val totalSize: Long
+    )
+
+    @Query("""
+        SELECT 
+            CASE 
+                WHEN mimeType LIKE 'image/%' THEN 'IMAGE'
+                WHEN mimeType LIKE 'video/%' THEN 'VIDEO'
+                WHEN mimeType LIKE 'audio/%' THEN 'AUDIO'
+                WHEN mimeType LIKE 'application/pdf' 
+                     OR mimeType LIKE 'text/%' 
+                     OR mimeType LIKE '%msword%' 
+                     OR mimeType LIKE '%document%' 
+                     OR mimeType LIKE '%sheet%' 
+                     OR mimeType LIKE '%presentation%'
+                     OR mimeType LIKE '%zip%'
+                     OR mimeType LIKE '%rar%'
+                     OR mimeType LIKE '%archive%'
+                     OR mimeType LIKE '%7z%'
+                THEN 'DOCUMENT'
+                ELSE 'OTHER'
+            END as category,
+            COUNT(*) as count,
+            SUM(size) as totalSize
+        FROM drive_items 
+        WHERE isFolder = 0 
+        GROUP BY category
+    """)
+    fun getCloudFileTypeStats(): Flow<List<FileTypeStat>>
 }

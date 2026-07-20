@@ -187,4 +187,16 @@
     <string name="category_database_desc">Essential files for app operation and file metadata.</string>
     <string name="category_media_files">Media &amp; Files</string>
     <string name="category_media_files_desc">Photos, videos, and documents saved locally for offline access.</string>
+    <string name="auto_download_thumbnails">Auto-download Thumbnails</string>
+    <string name="auto_download_thumbnails_desc">Automatically download image previews while browsing.</string>
+    <string name="cloud_analysis">Cloud Storage Analysis</string>
+    <string name="cloud_analysis_desc">Detailed breakdown of files stored in Telegram.</string>
+    <string name="category_images">Images</string>
+    <string name="items_count">%d items</string>
+    <string name="backup_wifi_only">Backup over Wi-Fi only</string>
+    <string name="backup_wifi_only_desc">Pause backup when using mobile data to save quota.</string>
+    <string name="no_backup_folders">No folders selected for backup</string>
+    <string name="backup_starting">Starting manual backup...</string>
+    <string name="waiting_for_wifi">Waiting for Wi-Fi to start backup</string>
+    <string name="cloud_usage_desc">View detailed analysis of your cloud files.</string>
 </resources>

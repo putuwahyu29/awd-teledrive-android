@@ -22,7 +22,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -81,7 +80,6 @@ fun BackupSettingsScreen(
         workInfo = activeWorkInfo,
         onBack = onBack,
         onToggleFolder = viewModel::toggleBackupFolder,
-        onToggleAutoBackup = viewModel::setAutoBackupEnabled,
         onTriggerBackup = {
             viewModel.triggerManualBackup()
             Toast.makeText(context, backupStartedMsg, Toast.LENGTH_SHORT).show()
@@ -98,13 +96,12 @@ fun BackupSettingsContent(
     workInfo: androidx.work.WorkInfo?,
     onBack: () -> Unit,
     onToggleFolder: (String) -> Unit,
-    onToggleAutoBackup: (Boolean) -> Unit,
     onTriggerBackup: () -> Unit
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.auto_backup)) },
+                title = { Text(stringResource(R.string.backup_folders)) },
                 modifier = Modifier.statusBarsPadding(),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -115,17 +112,6 @@ fun BackupSettingsContent(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.auto_backup)) },
-                supportingContent = { Text(stringResource(R.string.backup_description)) },
-                trailingContent = {
-                    Switch(
-                        checked = isAutoBackupEnabled,
-                        onCheckedChange = onToggleAutoBackup
-                    )
-                }
-            )
-            
             if (isAutoBackupEnabled) {
                 workInfo?.let { info ->
                     if (info.state == androidx.work.WorkInfo.State.RUNNING) {
@@ -198,7 +184,6 @@ fun BackupSettingsPreview() {
             workInfo = null,
             onBack = {},
             onToggleFolder = {},
-            onToggleAutoBackup = {},
             onTriggerBackup = {}
         )
     }

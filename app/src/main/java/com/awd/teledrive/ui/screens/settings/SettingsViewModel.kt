@@ -37,6 +37,9 @@ class SettingsViewModel @Inject constructor(
     val internalCacheSize: StateFlow<Long> = driveRepository.getInternalCacheSize()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
+    val cloudStats = driveRepository.getCloudFileTypeStats()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _cacheStatistics = MutableStateFlow(SettingsRepository.CacheStatistics())
     val cacheStatistics = _cacheStatistics.asStateFlow()
 
@@ -45,6 +48,9 @@ class SettingsViewModel @Inject constructor(
             _cacheStatistics.value = stats
         }
     }
+
+    val isThumbnailAutoDownloadEnabled = settingsRepository.isThumbnailAutoDownloadEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val cacheSizeLimit = settingsRepository.cacheSizeLimit
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_CACHE_SIZE)
@@ -113,6 +119,12 @@ class SettingsViewModel @Inject constructor(
 
     fun setCacheAgeLimit(limitSeconds: Int) {
         settingsRepository.setCacheAgeLimit(limitSeconds)
+    }
+
+    fun setThumbnailAutoDownloadEnabled(enabled: Boolean) {
+        settingsRepository.setThumbnailAutoDownloadEnabled(enabled)
+        // Refresh items to trigger/stop downloads if in a folder
+        driveRepository.fetchFiles()
     }
 
     fun clearCacheByType(fileType: TdApi.FileType?) {
