@@ -16,6 +16,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -36,6 +38,7 @@ class DriveRepository @Inject constructor(
     fun getSavedMessagesChatIdFlow(): Flow<Long> = _savedMessagesChatIdFlow.asStateFlow()
 
     private val exportOnComplete = mutableMapOf<String, String>()
+    private val deleteAfterUpload = mutableMapOf<Int, String>()
 
     init {
         scope.launch {
@@ -68,6 +71,21 @@ class DriveRepository @Inject constructor(
                     fetchFiles()
                 } else if (file.remote.isUploadingCompleted) {
                     Log.d("DriveRepo", "Upload completed for: ${file.remote.uniqueId}")
+                    
+                    // Auto-delete local copy if it was a temporary file from cache
+                    val pathToDelete = deleteAfterUpload.remove(fileId)
+                    if (pathToDelete != null) {
+                        try {
+                            val localFile = java.io.File(pathToDelete)
+                            if (localFile.exists() && pathToDelete.contains(context.cacheDir.absolutePath)) {
+                                localFile.delete()
+                                Log.d("DriveRepo", "Deleted temporary upload file: $pathToDelete")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("DriveRepo", "Failed to delete temp file: $pathToDelete", e)
+                        }
+                    }
+
                     fetchFiles()
                 }
 
@@ -88,6 +106,7 @@ class DriveRepository @Inject constructor(
         }
     }
 
+    @OptIn(FlowPreview::class)
     fun getItems(chatId: Long?, searchQuery: String = ""): Flow<List<DriveItem>> {
         val targetChatId = chatId ?: savedMessagesChatId
         Log.d("DriveRepo", "getItems called with chatId: $chatId, savedMessagesChatId: $savedMessagesChatId")
@@ -120,7 +139,7 @@ class DriveRepository @Inject constructor(
                     )
                 }
             }
-        }
+        }.debounce(500)
     }
 
     fun fetchFiles(chatId: Long? = null) {
@@ -322,6 +341,12 @@ class DriveRepository @Inject constructor(
                 val msgContent = result.content
                 if (msgContent is TdApi.MessageDocument) {
                     val doc = msgContent.document.document
+                    
+                    // Track for auto-deletion if it's in cache
+                    if (filePath.contains(context.cacheDir.absolutePath)) {
+                        deleteAfterUpload[doc.id] = filePath
+                    }
+
                     transferRepository.addTransfer(
                         doc.id,
                         doc.remote.uniqueId,
@@ -497,6 +522,7 @@ class DriveRepository @Inject constructor(
         }
     }
 
+    @OptIn(FlowPreview::class)
     fun getStarredItems(): Flow<List<DriveItem>> {
         return driveDao.getStarredItems().map { entities ->
             entities.map { entity ->
@@ -517,7 +543,7 @@ class DriveRepository @Inject constructor(
                     )
                 }
             }
-        }
+        }.debounce(500)
     }
 
     fun getAllFiles(): Flow<List<DriveItem.File>> {

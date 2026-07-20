@@ -153,4 +153,14 @@
     <string name="err_api_invalid">Invalid API ID or Hash.</string>
     <string name="err_connection">Failed to connect to Telegram servers. Check your internet.</string>
     <string name="err_unknown">An unexpected error occurred: %s</string>
+    <string name="about_app">About Application</string>
+    <string name="check_for_updates">Check for Updates</string>
+    <string name="up_to_date">App is already up to date</string>
+    <string name="update_available">Update Available: %s</string>
+    <string name="open_browser">Open Browser</string>
+    <string name="later">Later</string>
+    <string name="cache_size_limit">Cache Size Limit</string>
+    <string name="media_age_limit">Media Age Limit</string>
+    <string name="no_limit">No Limit</string>
+    <string name="reset_to_default">Reset to Default (/Downloads)</string>
 </resources>

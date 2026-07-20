@@ -77,14 +77,18 @@ class TransferRepository @Inject constructor(
                         else -> 0L
                     }
 
+                    val isCompleted = if (oldInfo.isDownload) {
+                        file.local.isDownloadingCompleted
+                    } else {
+                        file.remote.isUploadingCompleted
+                    }
+
                     val progress = when {
-                        file.local.isDownloadingCompleted || file.remote.isUploadingCompleted -> 1.0
+                        isCompleted -> 1.0
                         totalSize > 0 -> {
                             if (oldInfo.isDownload) {
                                 file.local.downloadedSize.toDouble() / totalSize.toDouble()
                             } else {
-                                // Upload might still be finishing even if remote.isUploadingCompleted is false
-                                // or it might be slightly off.
                                 file.remote.uploadedSize.toDouble() / totalSize.toDouble()
                             }
                         }
@@ -92,13 +96,9 @@ class TransferRepository @Inject constructor(
                     }
                     
                     val status = when {
-                        file.local.isDownloadingCompleted -> "Selesai"
-                        file.remote.isUploadingCompleted -> {
-                            if (totalSize > 0 && file.remote.uploadedSize < totalSize) "Mengunggah"
-                            else "Selesai"
-                        }
-                        file.local.isDownloadingActive -> "Mengunduh"
-                        file.remote.isUploadingActive -> "Mengunggah"
+                        isCompleted -> "Selesai"
+                        oldInfo.isDownload && file.local.isDownloadingActive -> "Mengunduh"
+                        !oldInfo.isDownload && (file.remote.isUploadingActive || file.remote.uploadedSize > 0) -> "Mengunggah"
                         file.local.canBeDownloaded.not() && oldInfo.isDownload && !file.local.isDownloadingCompleted -> "Gagal"
                         else -> oldInfo.status
                     }
@@ -106,7 +106,7 @@ class TransferRepository @Inject constructor(
                     val newInfo = oldInfo.copy(
                         fileId = file.id,
                         remoteUniqueId = if (uniqueId.isNotEmpty()) uniqueId else oldInfo.remoteUniqueId,
-                        progress = if (status == "Selesai") 1f else progress.toFloat(),
+                        progress = if (isCompleted) 1f else progress.toFloat(),
                         status = status,
                         totalSize = totalSize,
                         downloadedSize = if (oldInfo.isDownload) file.local.downloadedSize else file.remote.uploadedSize

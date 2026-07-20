@@ -153,4 +153,14 @@
     <string name="err_api_invalid">ID API atau Hash tidak valid.</string>
     <string name="err_connection">Gagal terhubung ke Telegram. Periksa internet Anda.</string>
     <string name="err_unknown">Terjadi kesalahan tak terduga: %s</string>
+    <string name="about_app">Tentang Aplikasi</string>
+    <string name="check_for_updates">Cari Pembaruan</string>
+    <string name="up_to_date">Aplikasi sudah menggunakan versi terbaru</string>
+    <string name="update_available">Pembaruan Tersedia: %s</string>
+    <string name="open_browser">Buka Browser</string>
+    <string name="later">Nanti</string>
+    <string name="cache_size_limit">Batas Ukuran Cache</string>
+    <string name="media_age_limit">Batas Umur Media</string>
+    <string name="no_limit">Tanpa Batas</string>
+    <string name="reset_to_default">Reset ke Default (/Downloads)</string>
 </resources>

@@ -29,7 +29,9 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.AlertDialog
@@ -342,12 +344,12 @@ fun SettingsContent(
     if (showCacheSizeDialog) {
         AlertDialog(
             onDismissRequest = { showCacheSizeDialog = false },
-            title = { Text("Batas Ukuran Cache") },
+            title = { Text(stringResource(R.string.cache_size_limit)) },
             text = {
                 Column {
                     SettingsRepository.CACHE_SIZE_OPTIONS.forEach { option: Long ->
                         ListItem(
-                            headlineContent = { Text(if (option == 0L) "Tanpa Batas" else formatSize(option)) },
+                            headlineContent = { Text(if (option == 0L) stringResource(R.string.no_limit) else formatSize(option)) },
                             modifier = Modifier.clickable {
                                 onSetCacheSizeLimit(option)
                                 showCacheSizeDialog = false
@@ -366,12 +368,12 @@ fun SettingsContent(
     if (showCacheAgeDialog) {
         AlertDialog(
             onDismissRequest = { showCacheAgeDialog = false },
-            title = { Text("Batas Umur Media") },
+            title = { Text(stringResource(R.string.media_age_limit)) },
             text = {
                 Column {
                     SettingsRepository.CACHE_AGE_OPTIONS.forEach { option: Int ->
                         ListItem(
-                            headlineContent = { Text(formatCacheAge(option)) },
+                            headlineContent = { Text(formatCacheAge(option, context)) },
                             modifier = Modifier.clickable {
                                 onSetCacheAgeLimit(option)
                                 showCacheAgeDialog = false
@@ -497,6 +499,37 @@ fun SettingsContent(
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            SettingsCategory(title = stringResource(R.string.storage))
+            SettingsRow(
+                icon = Icons.Default.Cloud,
+                title = stringResource(R.string.cloud_usage),
+                subtitle = stringResource(R.string.cloud_usage_subtitle, formatSize(uiState.totalStorageUsed))
+            )
+            
+            SettingsClickableRow(
+                icon = Icons.Default.Storage,
+                title = stringResource(R.string.internal_cache),
+                subtitle = stringResource(R.string.internal_cache_subtitle, formatSize(uiState.internalCacheSize)),
+                onClick = {
+                    showClearCacheConfirm = true
+                }
+            )
+
+            SettingsClickableRow(
+                icon = Icons.Default.Storage,
+                title = stringResource(R.string.cache_size_limit),
+                subtitle = if (uiState.cacheSizeLimit == 0L) stringResource(R.string.no_limit) else formatSize(uiState.cacheSizeLimit),
+                onClick = { showCacheSizeDialog = true }
+            )
+
+            SettingsClickableRow(
+                icon = Icons.Default.History,
+                title = stringResource(R.string.media_age_limit),
+                subtitle = formatCacheAge(uiState.cacheAgeLimit, context),
+                onClick = { showCacheAgeDialog = true }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SettingsCategory(title = stringResource(R.string.backup_settings))
             SettingsClickableRow(
                 icon = Icons.Default.Folder,
@@ -540,12 +573,25 @@ fun SettingsContent(
                     onClick = { onSetDownloadUri(null) },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 ) {
-                    Text("Reset to Default (/Downloads)")
+                    Text(stringResource(R.string.reset_to_default))
                 }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            SettingsCategory(title = stringResource(R.string.system))
+            SettingsCategory(title = stringResource(R.string.about_app))
+            
+            SettingsRow(
+                icon = Icons.Default.Info,
+                title = "Awd TeleDrive",
+                subtitle = "Version ${uiState.versionName} (${uiState.versionCode})"
+            )
+
+            SettingsClickableRow(
+                icon = Icons.Default.Refresh,
+                title = stringResource(R.string.check_for_updates),
+                onClick = onCheckForUpdates
+            )
+
             SettingsClickableRow(
                 icon = Icons.Default.Description,
                 title = stringResource(R.string.app_logs),
@@ -554,57 +600,6 @@ fun SettingsContent(
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            SettingsCategory(title = stringResource(R.string.storage))
-            SettingsRow(
-                icon = Icons.Default.Cloud,
-                title = stringResource(R.string.cloud_usage),
-                subtitle = stringResource(R.string.cloud_usage_subtitle, formatSize(uiState.totalStorageUsed))
-            )
-            
-            SettingsClickableRow(
-                icon = Icons.Default.Storage,
-                title = stringResource(R.string.internal_cache),
-                subtitle = stringResource(R.string.internal_cache_subtitle, formatSize(uiState.internalCacheSize)),
-                onClick = {
-                    showClearCacheConfirm = true
-                }
-            )
-
-            SettingsClickableRow(
-                icon = Icons.Default.Storage,
-                title = "Batas Ukuran Cache",
-                subtitle = if (uiState.cacheSizeLimit == 0L) "Tanpa Batas" else formatSize(uiState.cacheSizeLimit),
-                onClick = { showCacheSizeDialog = true }
-            )
-
-            SettingsClickableRow(
-                icon = Icons.Default.History,
-                title = "Batas Umur Media",
-                subtitle = formatCacheAge(uiState.cacheAgeLimit),
-                onClick = { showCacheAgeDialog = true }
-            )
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Awd TeleDrive",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Versi ${uiState.versionName} (${uiState.versionCode})",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = onCheckForUpdates) {
-                    Text("Cari Pembaruan")
-                }
-            }
-
             ListItem(
                 headlineContent = { 
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -623,7 +618,7 @@ fun SettingsContent(
         is UpdateState.NewVersionAvailable -> {
             AlertDialog(
                 onDismissRequest = onDismissUpdateDialog,
-                title = { Text("Pembaruan Tersedia: ${state.release.name}") },
+                title = { Text(stringResource(R.string.update_available, state.release.name)) },
                 text = { 
                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         Text(state.release.body)
@@ -635,12 +630,12 @@ fun SettingsContent(
                         context.startActivity(intent)
                         onDismissUpdateDialog()
                     }) {
-                        Text("Buka Browser")
+                        Text(stringResource(R.string.open_browser))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = onDismissUpdateDialog) {
-                        Text("Nanti")
+                        Text(stringResource(R.string.later))
                     }
                 }
             )
@@ -650,7 +645,7 @@ fun SettingsContent(
             onDismissUpdateDialog()
         }
         is UpdateState.UpToDate -> {
-            Toast.makeText(context, "Aplikasi sudah menggunakan versi terbaru", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, stringResource(R.string.up_to_date), Toast.LENGTH_SHORT).show()
             onDismissUpdateDialog()
         }
         UpdateState.Checking -> {
@@ -763,13 +758,13 @@ private fun formatSize(size: Long): String {
     return String.format(java.util.Locale.getDefault(), "%.1f %s", size / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
 }
 
-private fun formatCacheAge(seconds: Int): String {
+private fun formatCacheAge(seconds: Int, context: android.content.Context): String {
     return when (seconds) {
-        0 -> "Selamanya"
-        7 * 24 * 60 * 60 -> "1 Minggu"
-        30 * 24 * 60 * 60 -> "1 Bulan"
-        90 * 24 * 60 * 60 -> "3 Bulan"
-        365 * 24 * 60 * 60 -> "1 Tahun"
+        0 -> context.getString(R.string.no_limit)
+        7 * 24 * 60 * 60 -> if (Locale.getDefault().language == "in" || Locale.getDefault().language == "id") "1 Minggu" else "1 Week"
+        30 * 24 * 60 * 60 -> if (Locale.getDefault().language == "in" || Locale.getDefault().language == "id") "1 Bulan" else "1 Month"
+        90 * 24 * 60 * 60 -> if (Locale.getDefault().language == "in" || Locale.getDefault().language == "id") "3 Bulan" else "3 Months"
+        365 * 24 * 60 * 60 -> if (Locale.getDefault().language == "in" || Locale.getDefault().language == "id") "1 Tahun" else "1 Year"
         else -> "$seconds detik"
     }
 }
