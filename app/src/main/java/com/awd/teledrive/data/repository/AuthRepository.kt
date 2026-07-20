@@ -4,7 +4,7 @@ import android.content.Context
 import com.awd.teledrive.core.Config
 import com.awd.teledrive.data.remote.TelegramClient
 import com.awd.teledrive.data.secure.SecureSettings
-import com.awd.teledrive.data.repository.SettingsRepository
+import com.awd.teledrive.core.utils.VersionUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -97,7 +97,7 @@ class AuthRepository @Inject constructor(
             "en",
             android.os.Build.MODEL,
             android.os.Build.VERSION.RELEASE,
-            "1.0"
+            VersionUtils.getVersionName(context)
         )
 
         telegramClient.send(parameters) { result ->
