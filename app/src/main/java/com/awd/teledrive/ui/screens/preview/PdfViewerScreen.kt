@@ -3,6 +3,7 @@ package com.awd.teledrive.ui.screens.preview
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -10,9 +11,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -49,6 +53,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.awd.teledrive.core.FileSharingHelper
 import com.awd.teledrive.ui.theme.TeledriveTheme
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,48 +62,49 @@ fun PdfViewerScreen(
     filePath: String,
     onBack: () -> Unit
 ) {
-    val bitmaps = remember { mutableStateListOf<Bitmap>() }
-    val isPreview = LocalInspectionMode.current
     val context = LocalContext.current
+    val isPreview = LocalInspectionMode.current
+    
+    var pageCount by remember { mutableStateOf(0) }
+    var pdfRenderer by remember { mutableStateOf<PdfRenderer?>(null) }
 
-    if (!isPreview) {
-        LaunchedEffect(filePath) {
+    LaunchedEffect(filePath) {
+        if (!isPreview) {
             val file = File(filePath)
             if (file.exists()) {
-                val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-                val renderer = PdfRenderer(pfd)
-                for (i in 0 until renderer.pageCount) {
-                    val page = renderer.openPage(i)
-                    // High quality render: Use display metrics or fixed multiplier
-                    val density = context.resources.displayMetrics.density
-                    val width = (page.width * density * 1.5f).toInt()
-                    val height = (page.height * density * 1.5f).toInt()
-                    
-                    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                    // Set white background for the bitmap before rendering
-                    bitmap.eraseColor(android.graphics.Color.WHITE)
-                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    bitmaps.add(bitmap)
-                    page.close()
+                try {
+                    val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                    val renderer = PdfRenderer(pfd)
+                    pdfRenderer = renderer
+                    pageCount = renderer.pageCount
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-                renderer.close()
-                pfd.close()
             }
         }
     }
 
+    // Ensure resources are closed when leaving
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            pdfRenderer?.close()
+        }
+    }
+
     PdfViewerContent(
-        bitmaps = bitmaps,
+        pdfRenderer = pdfRenderer,
+        pageCount = pageCount,
         filePath = filePath,
         onBack = onBack,
-        isLoading = bitmaps.isEmpty() && !isPreview
+        isLoading = pdfRenderer == null && !isPreview
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PdfViewerContent(
-    bitmaps: List<Bitmap>,
+    pdfRenderer: PdfRenderer?,
+    pageCount: Int,
     filePath: String,
     onBack: () -> Unit,
     isLoading: Boolean
@@ -136,13 +142,13 @@ fun PdfViewerContent(
                 }
             )
         },
-        containerColor = Color.DarkGray // Improved UX with darker background
+        containerColor = Color.DarkGray
     ) { padding ->
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color.White)
             }
-        } else if (bitmaps.isEmpty()) {
+        } else if (pdfRenderer == null && !isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("Gagal memuat PDF", color = Color.White)
             }
@@ -175,21 +181,76 @@ fun PdfViewerContent(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    items(bitmaps) { bitmap ->
-                        Card(
-                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White)
-                        ) {
-                            Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxWidth(),
-                                contentScale = ContentScale.FillWidth
-                            )
-                        }
+                    items(pageCount) { index ->
+                        PdfPageItem(pdfRenderer, index)
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun PdfPageItem(renderer: PdfRenderer?, index: Int) {
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val context = LocalContext.current
+
+    LaunchedEffect(index) {
+        if (renderer != null) {
+            withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    synchronized(renderer) {
+                        val page = renderer.openPage(index)
+                        
+                        // Optimized memory: Limit resolution to device screen width
+                        val displayMetrics = context.resources.displayMetrics
+                        val screenWidth = displayMetrics.widthPixels
+                        val scaleFactor = screenWidth.toFloat() / page.width.toFloat()
+                        
+                        val width = (page.width * scaleFactor).toInt().coerceAtMost(2000)
+                        val height = (page.height * scaleFactor).toInt().coerceAtMost(3000)
+                        
+                        val newBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        newBitmap.eraseColor(android.graphics.Color.WHITE)
+                        page.render(newBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        bitmap = newBitmap
+                        page.close()
+                    }
+                } catch (e: Exception) {
+                    Log.e("PdfViewer", "Error rendering page $index", e)
+                }
+            }
+        }
+    }
+
+    // Recycle bitmap when out of composition to save memory
+    androidx.compose.runtime.DisposableEffect(index) {
+        onDispose {
+            // Optional: Keep in memory or recycle. For now let GC handle it as we reuse 'bitmap' state
+        }
+    }
+
+    Card(
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap!!.asImageBitmap(),
+                contentDescription = "Page ${index + 1}",
+                modifier = Modifier.fillMaxWidth(),
+                contentScale = ContentScale.FillWidth
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(400.dp), // Placeholder height
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -199,6 +260,6 @@ fun PdfViewerContent(
 @Composable
 fun PdfViewerPreview() {
     TeledriveTheme {
-        PdfViewerContent(bitmaps = emptyList(), filePath = "Sample.pdf", onBack = {}, isLoading = false)
+        PdfViewerContent(pdfRenderer = null, pageCount = 0, filePath = "Sample.pdf", onBack = {}, isLoading = false)
     }
 }

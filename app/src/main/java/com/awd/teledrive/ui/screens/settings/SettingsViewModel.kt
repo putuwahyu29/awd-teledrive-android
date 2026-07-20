@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.drinkless.tdlib.TdApi
 import java.util.Locale
 import javax.inject.Inject
 
@@ -35,6 +36,15 @@ class SettingsViewModel @Inject constructor(
     
     val internalCacheSize: StateFlow<Long> = driveRepository.getInternalCacheSize()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    private val _cacheStatistics = MutableStateFlow(SettingsRepository.CacheStatistics())
+    val cacheStatistics = _cacheStatistics.asStateFlow()
+
+    fun refreshCacheStatistics() {
+        settingsRepository.getStorageStatistics { stats ->
+            _cacheStatistics.value = stats
+        }
+    }
 
     val cacheSizeLimit = settingsRepository.cacheSizeLimit
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_CACHE_SIZE)
@@ -103,6 +113,27 @@ class SettingsViewModel @Inject constructor(
 
     fun setCacheAgeLimit(limitSeconds: Int) {
         settingsRepository.setCacheAgeLimit(limitSeconds)
+    }
+
+    fun clearCacheByType(fileType: TdApi.FileType?) {
+        val isThumbnail = fileType is TdApi.FileTypeThumbnail
+        val isAll = fileType == null
+        
+        settingsRepository.clearCacheByType(fileType, isMediaAndFiles = false) { stats ->
+            if (isThumbnail) driveRepository.clearDatabaseLocalPaths(onlyThumbnails = true)
+            else if (isAll) driveRepository.clearDatabaseLocalPaths()
+            
+            _cacheStatistics.value = stats
+            driveRepository.fetchFiles()
+        }
+    }
+
+    fun clearMediaAndFilesCache() {
+        settingsRepository.clearCacheByType(null, isMediaAndFiles = true) { stats ->
+            driveRepository.clearDatabaseLocalPaths(onlyFiles = true)
+            _cacheStatistics.value = stats
+            driveRepository.fetchFiles()
+        }
     }
 
     fun checkForUpdates() {

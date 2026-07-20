@@ -477,8 +477,17 @@ class DriveRepository @Inject constructor(
     fun getInternalCacheSize(): Flow<Long> {
         return kotlinx.coroutines.flow.flow {
             while (true) {
-                val size = calculateDirectorySize(context.filesDir)
-                emit(size)
+                var totalSize = 0L
+                // Include TDLib files (in filesDir/tdlib)
+                totalSize += calculateDirectorySize(context.filesDir)
+                // Include app cache (thumbnails, temp files)
+                totalSize += calculateDirectorySize(context.cacheDir)
+                // Include external cache if available
+                context.externalCacheDir?.let {
+                    totalSize += calculateDirectorySize(it)
+                }
+                
+                emit(totalSize)
                 kotlinx.coroutines.delay(10000) // Update every 10s
             }
         }.flowOn(Dispatchers.IO)
@@ -493,21 +502,43 @@ class DriveRepository @Inject constructor(
     }
 
     fun clearInternalCache() {
+        clearDatabaseLocalPaths()
         scope.launch {
-            // Tell TDLib to optimize storage (delete all files)
-            // Using the constructor: size, ttl, count, immunityDelay, fileTypes, chatIds, excludeChatIds, returnDeletedFileStatistics, chatLimit
+            // 1. Manually clear Android's cache directories
+            try {
+                context.cacheDir.listFiles()?.forEach { it.deleteRecursively() }
+                context.externalCacheDir?.listFiles()?.forEach { it.deleteRecursively() }
+                Log.d("DriveRepo", "Manual cache directories cleared")
+            } catch (e: Exception) {
+                Log.e("DriveRepo", "Failed to clear manual cache dirs", e)
+            }
+
+            // 2. Tell TDLib to optimize storage (delete its internal file copies)
             telegramClient.send(TdApi.OptimizeStorage(
-                -1, // size: -1 means no limit (or 0 for clear all)
-                0,  // ttl
-                0,  // count
-                0,  // immunityDelay
-                null, // fileTypes (null means all)
-                null, // chatIds
-                null, // excludeChatIds
-                true, // returnDeletedFileStatistics
-                0     // chatLimit
+                0, // size 0 means clear all possible
+                0, // ttl
+                0, // count
+                0, // immunityDelay
+                null,
+                null,
+                null,
+                true,
+                0
             )) {
                 fetchFiles() // Refresh to update localPaths to null
+            }
+        }
+    }
+
+    fun clearDatabaseLocalPaths(onlyThumbnails: Boolean = false, onlyFiles: Boolean = false) {
+        scope.launch {
+            if (onlyThumbnails) {
+                driveDao.clearAllThumbnailPaths()
+            } else if (onlyFiles) {
+                driveDao.clearAllLocalPaths()
+            } else {
+                driveDao.clearAllLocalPaths()
+                driveDao.clearAllThumbnailPaths()
             }
         }
     }

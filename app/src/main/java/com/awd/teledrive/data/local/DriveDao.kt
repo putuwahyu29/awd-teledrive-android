@@ -67,6 +67,12 @@ interface DriveDao {
     @Query("UPDATE drive_items SET localPath = :path WHERE telegramFileId = :fileId")
     suspend fun updateLocalPath(fileId: Int, path: String)
 
+    @Query("UPDATE drive_items SET localPath = NULL")
+    suspend fun clearAllLocalPaths()
+
+    @Query("UPDATE drive_items SET thumbnailPath = NULL")
+    suspend fun clearAllThumbnailPaths()
+
     @Query("DELETE FROM drive_items WHERE parentChatId = :chatId")
     suspend fun deleteItemsByChat(chatId: Long)
 

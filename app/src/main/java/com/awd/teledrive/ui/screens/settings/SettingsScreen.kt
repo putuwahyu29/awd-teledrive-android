@@ -95,6 +95,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToBackupFolders: () -> Unit,
     onNavigateToLogs: () -> Unit,
+    onNavigateToCacheDetails: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
     themeViewModel: ThemeViewModel = hiltViewModel(),
     securityViewModel: SecurityViewModel = hiltViewModel(),
@@ -147,6 +148,7 @@ fun SettingsScreen(
             (context as? android.app.Activity)?.finish()
         },
         onNavigateToBackupFolders = onNavigateToBackupFolders,
+        onNavigateToCacheDetails = onNavigateToCacheDetails,
         onSetDarkMode = { themeViewModel.setDarkMode(it) },
         onSetThemeColor = { themeViewModel.setThemeColor(it) },
         onSetSecurityEnabled = { securityViewModel.setSecurityEnabled(it) },
@@ -171,6 +173,7 @@ fun SettingsContent(
     onBack: () -> Unit,
     onLogout: () -> Unit,
     onNavigateToBackupFolders: () -> Unit,
+    onNavigateToCacheDetails: () -> Unit,
     onSetDarkMode: (Boolean) -> Unit,
     onSetThemeColor: (Color) -> Unit,
     onSetSecurityEnabled: (Boolean) -> Unit,
@@ -510,9 +513,7 @@ fun SettingsContent(
                 icon = Icons.Default.Storage,
                 title = stringResource(R.string.internal_cache),
                 subtitle = stringResource(R.string.internal_cache_subtitle, formatSize(uiState.internalCacheSize)),
-                onClick = {
-                    showClearCacheConfirm = true
-                }
+                onClick = onNavigateToCacheDetails
             )
 
             SettingsClickableRow(
@@ -680,6 +681,7 @@ fun SettingsPreview() {
             onBack = {},
             onLogout = {},
             onNavigateToBackupFolders = {},
+            onNavigateToCacheDetails = {},
             onSetDarkMode = {},
             onSetThemeColor = {},
             onSetSecurityEnabled = {},
