@@ -269,7 +269,8 @@ class DriveRepository @Inject constructor(
                 Log.d("DriveRepo", "Mapped ${entities.size} valid entities for chat $chatId")
                 scope.launch {
                     driveDao.deletePendingItems()
-                    driveDao.refreshChatItems(chatId, entities)
+                    // Preserve folders if we are in the root (Saved Messages) because they are synced separately
+                    driveDao.refreshChatItems(chatId, entities, preserveFolders = chatId == savedMessagesChatId)
                 }
             } else {
                 Log.e("DriveRepo", "GetChatHistory failed or returned non-Messages: ${result::class.java.simpleName}")
@@ -280,31 +281,35 @@ class DriveRepository @Inject constructor(
         }
 
         if (chatId == savedMessagesChatId && savedMessagesChatId != 0L) {
-            telegramClient.send(TdApi.GetChats(TdApi.ChatListMain(), 100)) { result ->
-                if (result is TdApi.Chats) {
-                    result.chatIds.forEach { cid ->
-                        telegramClient.send(TdApi.GetChat(cid)) { chatResult ->
-                            if (chatResult is TdApi.Chat) {
-                                val type = chatResult.type
-                                if (type is TdApi.ChatTypeSupergroup && type.isChannel && cid != savedMessagesChatId) {
-                                    telegramClient.send(TdApi.GetSupergroup(type.supergroupId)) { sgResult ->
-                                        if (sgResult is TdApi.Supergroup) {
-                                            val status = sgResult.status
-                                            if (status is TdApi.ChatMemberStatusCreator || status is TdApi.ChatMemberStatusAdministrator) {
-                                                scope.launch {
-                                                    val existing = driveDao.getItemById(chatResult.id, savedMessagesChatId)
-                                                    driveDao.insertItems(listOf(
-                                                        DriveItemEntity(
-                                                            id = chatResult.id,
-                                                            name = chatResult.title,
-                                                            size = 0,
-                                                            mimeType = "folder",
-                                                            telegramFileId = 0,
-                                                            parentChatId = savedMessagesChatId,
-                                                            isFolder = true,
-                                                            isStarred = existing?.isStarred ?: false
-                                                        )
-                                                    ))
+            val chatLists = listOf(TdApi.ChatListMain(), TdApi.ChatListArchive())
+            chatLists.forEach { chatList ->
+                telegramClient.send(TdApi.GetChats(chatList, 100)) { result ->
+                    if (result is TdApi.Chats) {
+                        result.chatIds.forEach { cid ->
+                            telegramClient.send(TdApi.GetChat(cid)) { chatResult ->
+                                if (chatResult is TdApi.Chat) {
+                                    val type = chatResult.type
+                                    if (type is TdApi.ChatTypeSupergroup && type.isChannel && cid != savedMessagesChatId) {
+                                        telegramClient.send(TdApi.GetSupergroup(type.supergroupId)) { sgResult ->
+                                            if (sgResult is TdApi.Supergroup) {
+                                                val status = sgResult.status
+                                                if (status is TdApi.ChatMemberStatusCreator || status is TdApi.ChatMemberStatusAdministrator) {
+                                                    scope.launch {
+                                                        val existing = driveDao.getItemById(chatResult.id, savedMessagesChatId)
+                                                        driveDao.insertItems(listOf(
+                                                            DriveItemEntity(
+                                                                id = chatResult.id,
+                                                                name = chatResult.title,
+                                                                size = 0,
+                                                                mimeType = "folder",
+                                                                telegramFileId = 0,
+                                                                parentChatId = savedMessagesChatId,
+                                                                isFolder = true,
+                                                                isStarred = existing?.isStarred ?: false,
+                                                                createdAt = existing?.createdAt ?: System.currentTimeMillis()
+                                                            )
+                                                        ))
+                                                    }
                                                 }
                                             }
                                         }

@@ -31,7 +31,7 @@ interface DriveDao {
     suspend fun insertItems(items: List<DriveItemEntity>)
 
     @Transaction
-    suspend fun refreshChatItems(chatId: Long, items: List<DriveItemEntity>) {
+    suspend fun refreshChatItems(chatId: Long, items: List<DriveItemEntity>, preserveFolders: Boolean = false) {
         val newItemIds = items.map { it.id }.toSet()
         val existingItems = getItemsSync(chatId)
         val starredItemIds = existingItems.filter { it.isStarred }.map { it.id }.toSet()
@@ -44,7 +44,9 @@ interface DriveDao {
             }
         }
 
-        val toDelete = existingItems.filter { it.id !in newItemIds }.map { it.id }
+        val toDelete = existingItems.filter { item ->
+            item.id !in newItemIds && (!preserveFolders || !item.isFolder)
+        }.map { it.id }
         
         if (toDelete.isNotEmpty()) {
             deleteItemsByIds(chatId, toDelete)
