@@ -14,7 +14,7 @@ android {
         create("release") {
             // Membaca dari Environment Variables yang disiapkan oleh GitHub Actions
             val keystorePath = System.getenv("KEYSTORE_PATH")
-            if (keystorePath != null) {
+            if (keystorePath != null && file(keystorePath).exists()) {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("KEY_STORE_PASSWORD")
                 keyAlias = System.getenv("ALIAS")
@@ -27,8 +27,8 @@ android {
         applicationId = "com.awd.teledrive"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -53,8 +53,11 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             
-            // Gunakan konfigurasi signing release jika tersedia
-            signingConfig = signingConfigs.getByName("release")
+            // Gunakan konfigurasi signing release jika tersedia dan valid
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
 
             // Tambahkan optimasi tambahan
             ndk {

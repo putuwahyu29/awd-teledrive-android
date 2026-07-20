@@ -1,0 +1,4 @@
+- Added Cloud Storage Analysis.
+- Improved Local Cache management.
+- Optimized PDF and media viewing.
+- Added support for archived channels.

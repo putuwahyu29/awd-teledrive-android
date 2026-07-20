@@ -36,6 +36,7 @@
     <string name="clear_selection">Clear Selection</string>
     <string name="delete_items">Delete Items?</string>
     <string name="theme_color">Theme Color</string>
+    <string name="choose_color_desc">Choose application primary color</string>
     <string name="display">Display</string>
     <string name="security">Security</string>
     <string name="telegram_api">Telegram API</string>
@@ -206,4 +207,19 @@
     <string name="backup_starting">Starting manual backup...</string>
     <string name="waiting_for_wifi">Waiting for Wi-Fi to start backup</string>
     <string name="cloud_usage_desc">View detailed analysis of your cloud files.</string>
+    <string name="links">Links</string>
+    <string name="legal">Legal</string>
+
+    <string name="version_history">Version History</string>
+    <string name="version_history_desc">View changes in recent versions</string>
+    <string name="whats_new">What\'s New</string>
+    <string name="changelog_v120"><b>Version 1.2.0</b>\n• Support for files over 2GB (Auto-Split)\n• Persistent transfer manager (resumes after restart)\n• Improved folder discovery in root directory\n• Added Version History in settings</string>
+    <string name="changelog_v110"><b>Version 1.1.0</b>\n• Cloud Storage Analysis tool\n• Advanced Local Cache management\n• Support for archived Telegram channels\n• Optimized PDF rendering and stability</string>
+    <string name="changelog_v100"><b>Version 1.0.0</b>\n• Initial release of TeleDrive Android\n• Professional file management (Upload, Download, etc.)\n• Automatic background backup for media folders</string>
+    <string name="official_website">Official Website</string>
+    <string name="github_and_issues">GitHub &amp; Issues</string>
+    <string name="creator">Creator</string>
+    <string name="license">License</string>
+    <string name="mit_license">MIT License</string>
+    <string name="mit_license_text">Copyright &#169; 2026 I Putu Agus Wahyu Dupayana\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</string>
 </resources>

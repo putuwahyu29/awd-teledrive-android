@@ -38,6 +38,7 @@ import com.awd.teledrive.ui.screens.preview.TextViewerScreen
 import com.awd.teledrive.ui.screens.preview.VideoPlayerScreen
 import com.awd.teledrive.ui.screens.security.MasterPasswordScreen
 import com.awd.teledrive.ui.screens.security.SecurityViewModel
+import com.awd.teledrive.ui.screens.settings.AboutScreen
 import com.awd.teledrive.ui.screens.settings.BackupSettingsScreen
 import com.awd.teledrive.ui.screens.settings.CacheDetailsScreen
 import com.awd.teledrive.ui.screens.settings.CloudAnalysisScreen
@@ -55,6 +56,7 @@ sealed class Screen(val route: String, val icon: ImageVector? = null, val labelR
     object Media : Screen("media", Icons.Default.PermMedia, R.string.media)
     object Transfers : Screen("transfers", Icons.Default.SwapVert, R.string.transfers)
     object Settings : Screen("settings", Icons.Default.Settings, R.string.settings)
+    object About : Screen("about")
     object CacheDetails : Screen("cache_details")
     object CloudAnalysis : Screen("cloud_analysis")
     object Logs : Screen("logs")
@@ -194,8 +196,12 @@ fun NavGraph(navController: NavHostController) {
                     onNavigateToBackupFolders = { navController.navigate(Screen.BackupSettings.route) },
                     onNavigateToLogs = { navController.navigate(Screen.Logs.route) },
                     onNavigateToCacheDetails = { navController.navigate(Screen.CacheDetails.route) },
-                    onNavigateToCloudAnalysis = { navController.navigate(Screen.CloudAnalysis.route) }
+                    onNavigateToCloudAnalysis = { navController.navigate(Screen.CloudAnalysis.route) },
+                    onNavigateToAbout = { navController.navigate(Screen.About.route) }
                 )
+            }
+            composable(Screen.About.route) {
+                AboutScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.CacheDetails.route) {
                 CacheDetailsScreen(onBack = { navController.popBackStack() })

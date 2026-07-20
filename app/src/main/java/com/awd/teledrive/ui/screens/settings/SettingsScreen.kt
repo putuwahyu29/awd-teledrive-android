@@ -7,19 +7,23 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudUpload
@@ -32,7 +36,6 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Wifi
@@ -100,6 +103,7 @@ fun SettingsScreen(
     onNavigateToLogs: () -> Unit,
     onNavigateToCacheDetails: () -> Unit,
     onNavigateToCloudAnalysis: () -> Unit,
+    onNavigateToAbout: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
     themeViewModel: ThemeViewModel = hiltViewModel(),
     securityViewModel: SecurityViewModel = hiltViewModel(),
@@ -169,6 +173,7 @@ fun SettingsScreen(
         onNavigateToBackupFolders = onNavigateToBackupFolders,
         onNavigateToCacheDetails = onNavigateToCacheDetails,
         onNavigateToCloudAnalysis = onNavigateToCloudAnalysis,
+        onNavigateToAbout = onNavigateToAbout,
         onSetDarkMode = { themeViewModel.setDarkMode(it) },
         onSetThemeColor = { themeViewModel.setThemeColor(it) },
         onSetSecurityEnabled = { securityViewModel.setSecurityEnabled(it) },
@@ -183,13 +188,12 @@ fun SettingsScreen(
         onSetCacheSizeLimit = viewModel::setCacheSizeLimit,
         onSetCacheAgeLimit = viewModel::setCacheAgeLimit,
         onSetThumbnailAutoDownload = viewModel::setThumbnailAutoDownloadEnabled,
-        onCheckForUpdates = viewModel::checkForUpdates,
         showCacheWarning = showCacheWarning,
         onDismissCacheWarning = viewModel::dismissCacheWarning
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun SettingsContent(
     uiState: SettingsUiState,
@@ -201,6 +205,7 @@ fun SettingsContent(
     onNavigateToBackupFolders: () -> Unit,
     onNavigateToCacheDetails: () -> Unit,
     onNavigateToCloudAnalysis: () -> Unit,
+    onNavigateToAbout: () -> Unit,
     onSetDarkMode: (Boolean) -> Unit,
     onSetThemeColor: (Color) -> Unit,
     onSetSecurityEnabled: (Boolean) -> Unit,
@@ -215,7 +220,6 @@ fun SettingsContent(
     onSetCacheSizeLimit: (Long) -> Unit,
     onSetCacheAgeLimit: (Int) -> Unit,
     onSetThumbnailAutoDownload: (Boolean) -> Unit,
-    onCheckForUpdates: () -> Unit,
     onDismissCacheWarning: () -> Unit
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -229,6 +233,7 @@ fun SettingsContent(
     var showClearCacheConfirm by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
     var showThemeRestartConfirm by remember { mutableStateOf(false) }
+    var showThemeColorDialog by remember { mutableStateOf(false) }
 
     val folderLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
@@ -438,6 +443,62 @@ fun SettingsContent(
         )
     }
 
+    if (showThemeColorDialog) {
+        AlertDialog(
+            onDismissRequest = { showThemeColorDialog = false },
+            title = { Text(stringResource(R.string.theme_color)) },
+            text = {
+                Box(modifier = Modifier.height(280.dp)) {
+                    val colors = listOf(
+                        Color(0xFF24A1DE), Color(0xFF673AB7), Color(0xFF3F51B5),
+                        Color(0xFF2196F3), Color(0xFF00BCD4), Color(0xFF009688),
+                        Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFFFFC107),
+                        Color(0xFFFF9800), Color(0xFFFF5722), Color(0xFFE91E63),
+                        Color(0xFF9C27B0), Color(0xFF607D8B)
+                    )
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(colors) { color ->
+                            Surface(
+                                onClick = {
+                                    onSetThemeColor(color)
+                                    showThemeColorDialog = false
+                                    showThemeRestartConfirm = true
+                                },
+                                color = color,
+                                shape = CircleShape,
+                                modifier = Modifier.size(48.dp),
+                                border = if (uiState.themeColor == color)
+                                    BorderStroke(3.dp, MaterialTheme.colorScheme.onSurface) else null,
+                                tonalElevation = 4.dp
+                            ) {
+                                if (uiState.themeColor == color) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showThemeColorDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -471,60 +532,12 @@ fun SettingsContent(
                 onCheckedChange = onSetThumbnailAutoDownload
             )
             
-            Text(
-                text = stringResource(R.string.theme_color),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            SettingsClickableRow(
+                icon = Icons.Default.Check,
+                title = stringResource(R.string.theme_color),
+                subtitle = stringResource(R.string.choose_color_desc),
+                onClick = { showThemeColorDialog = true }
             )
-            androidx.compose.foundation.lazy.LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val colors = listOf(
-                    Color(0xFF24A1DE), // Telegram Blue
-                    Color(0xFF673AB7), // Deep Purple
-                    Color(0xFF3F51B5), // Indigo
-                    Color(0xFF2196F3), // Blue
-                    Color(0xFF00BCD4), // Cyan
-                    Color(0xFF009688), // Teal
-                    Color(0xFF4CAF50), // Green
-                    Color(0xFF8BC34A), // Light Green
-                    Color(0xFFFFC107), // Amber
-                    Color(0xFFFF9800), // Orange
-                    Color(0xFFFF5722), // Deep Orange
-                    Color(0xFFE91E63), // Pink
-                    Color(0xFF9C27B0), // Purple
-                    Color(0xFF607D8B), // Blue Grey
-                )
-                items(colors) { color ->
-                    Surface(
-                        onClick = { 
-                            onSetThemeColor(color)
-                            showThemeRestartConfirm = true
-                        },
-                        color = color,
-                        shape = CircleShape,
-                        modifier = Modifier.size(48.dp),
-                        border = if (uiState.themeColor == color) 
-                            BorderStroke(3.dp, MaterialTheme.colorScheme.onSurface) else null,
-                        tonalElevation = 4.dp
-                    ) {
-                        if (uiState.themeColor == color) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
 
             SettingsClickableRow(
                 icon = Icons.Default.Language,
@@ -650,18 +663,13 @@ fun SettingsContent(
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            SettingsCategory(title = stringResource(R.string.about_app))
+            SettingsCategory(title = stringResource(R.string.system))
             
-            SettingsRow(
-                icon = Icons.Default.Info,
-                title = "Awd TeleDrive",
-                subtitle = "Version ${uiState.versionName} (${uiState.versionCode})"
-            )
-
             SettingsClickableRow(
-                icon = Icons.Default.Refresh,
-                title = stringResource(R.string.check_for_updates),
-                onClick = onCheckForUpdates
+                icon = Icons.Default.Info,
+                title = stringResource(R.string.about_app),
+                subtitle = "v${uiState.versionName} (${uiState.versionCode})",
+                onClick = onNavigateToAbout
             )
 
             SettingsClickableRow(
@@ -716,6 +724,7 @@ fun SettingsPreview() {
             onNavigateToBackupFolders = {},
             onNavigateToCacheDetails = {},
             onNavigateToCloudAnalysis = {},
+            onNavigateToAbout = {},
             onSetDarkMode = {},
             onSetThemeColor = {},
             onSetSecurityEnabled = {},
@@ -730,7 +739,6 @@ fun SettingsPreview() {
             onSetCacheSizeLimit = {},
             onSetCacheAgeLimit = {},
             onSetThumbnailAutoDownload = {},
-            onCheckForUpdates = {},
             onDismissCacheWarning = {}
         )
     }
@@ -756,11 +764,20 @@ fun SettingsRow(icon: ImageVector, title: String, subtitle: String? = null) {
 }
 
 @Composable
-fun SettingsClickableRow(icon: ImageVector, title: String, subtitle: String? = null, onClick: () -> Unit) {
+fun SettingsClickableRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    showArrow: Boolean = true,
+    onClick: () -> Unit
+) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = subtitle?.let { { Text(it) } },
         leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        trailingContent = if (showArrow) {
+            { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) }
+        } else null,
         modifier = Modifier.clickable(onClick = onClick)
     )
 }

@@ -1,0 +1,9 @@
+TeleDrive mengubah akun Telegram Anda menjadi drive penyimpanan awan pribadi yang aman dan tidak terbatas. Kelola file, otomatisasi pencadangan latar belakang, dan navigasi direktori media Anda melalui antarmuka Material 3 modern.
+
+Fitur Utama:
+- Penyimpanan Awan Tak Terbatas: Manfaatkan infrastruktur Telegram untuk file Anda.
+- Pencadangan Latar Belakang: Sinkronisasi folder media Anda ke cloud secara otomatis.
+- UI Modern: Antarmuka yang bersih dan intuitif dibangun dengan Jetpack Compose dan Material 3.
+- Aman & Pribadi: Didukung oleh TDLib dengan enkripsi pengaturan lokal yang aman.
+- Manajemen File: Unggah, unduh, dan atur file Anda dengan mudah.
+- Dukungan File Besar: Secara otomatis membagi file lebih besar dari 2GB untuk pengunggahan Telegram yang lancar.

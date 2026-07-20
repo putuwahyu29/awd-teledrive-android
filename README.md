@@ -158,7 +158,14 @@ Ensure you have the latest Android Studio installed.
 2. **Build with Gradle Wrapper**:
    Open a terminal in the root directory and run:
    ```bash
-   # Clean & Build project
+   # To generate a debug APK
+   ./gradlew assembleDebug
+
+   # To generate an unsigned release APK (suitable for F-Droid)
+   ./gradlew assembleRelease
+   ```
+3. **F-Droid Metadata**:
+   This project includes [Fastlane](https://fastlane.tools/) metadata in the `fastlane/metadata/android` directory, which is used by F-Droid to automatically pull app descriptions and localized content.
    ./gradlew clean build
    
    # Assemble Debug APK

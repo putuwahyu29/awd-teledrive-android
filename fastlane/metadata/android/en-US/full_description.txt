@@ -1,0 +1,9 @@
+TeleDrive transforms your Telegram account into an unlimited, secure personal cloud storage drive. Manage files, automate background backups, and navigate your media directory through a modern Material 3 interface.
+
+Key Features:
+- Unlimited Cloud Storage: Leverage Telegram's infrastructure for your files.
+- Background Backup: Automatically sync your media folders to the cloud.
+- Modern UI: A clean, intuitive interface built with Jetpack Compose and Material 3.
+- Secure & Private: Powered by TDLib with secure local settings encryption.
+- File Management: Effortlessly upload, download, and organize your files.
+- Large File Support: Automatically splits files larger than 2GB for seamless Telegram uploads.

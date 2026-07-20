@@ -1,0 +1,4 @@
+- Support for files over 2GB (Auto-Split).
+- Persistent transfer manager (resumes after restart).
+- Improved folder discovery in root directory.
+- Added Version History in settings.

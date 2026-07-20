@@ -1,0 +1,4 @@
+- Menambahkan Analisis Penyimpanan Awan.
+- Peningkatan manajemen Cache Lokal.
+- Optimasi tampilan PDF dan media.
+- Dukungan untuk channel yang diarsip.

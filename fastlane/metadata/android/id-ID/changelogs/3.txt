@@ -1,0 +1,4 @@
+- Dukungan file di atas 2GB (Auto-Split).
+- Manajer transfer persisten (lanjut setelah restart).
+- Peningkatan deteksi folder di direktori utama.
+- Menambahkan Riwayat Versi di pengaturan.

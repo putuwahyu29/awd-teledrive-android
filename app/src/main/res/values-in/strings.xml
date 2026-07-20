@@ -36,6 +36,7 @@
     <string name="clear_selection">Bersihkan Pilihan</string>
     <string name="delete_items">Hapus Item?</string>
     <string name="theme_color">Warna Tema</string>
+    <string name="choose_color_desc">Pilih warna utama aplikasi</string>
     <string name="display">Display</string>
     <string name="security">Keamanan</string>
     <string name="telegram_api">API Telegram</string>
@@ -206,4 +207,18 @@
     <string name="backup_starting">Memulai pencadangan manual...</string>
     <string name="waiting_for_wifi">Menunggu Wi-Fi untuk memulai pencadangan</string>
     <string name="cloud_usage_desc">Lihat analisis mendalam file awan Anda.</string>
+    <string name="links">Tautan</string>
+    <string name="legal">Legal</string>
+
+    <string name="version_history">Riwayat Versi</string>
+    <string name="version_history_desc">Lihat perubahan pada versi terbaru</string>
+    <string name="whats_new">Apa yang Baru</string>
+    <string name="changelog_v120"><b>Versi 1.2.0</b>\n• Dukungan file di atas 2GB (Auto-Split)\n• Manajer transfer persisten (lanjut setelah restart)\n• Peningkatan deteksi folder di direktori utama\n• Menambahkan Riwayat Versi di pengaturan</string>
+    <string name="changelog_v110"><b>Versi 1.1.0</b>\n• Alat Analisis Penyimpanan Awan\n• Manajemen Cache Lokal tingkat lanjut\n• Dukungan untuk channel Telegram yang diarsip\n• Optimasi perenderan PDF dan stabilitas</string>
+    <string name="changelog_v100"><b>Versi 1.0.0</b>\n• Rilis awal TeleDrive Android\n• Manajemen file profesional (Unggah, Unduh, dll.)\n• Pencadangan latar belakang otomatis untuk folder media</string>
+    <string name="github_and_issues">GitHub &amp; Masalah</string>
+    <string name="creator">Pembuat</string>
+    <string name="license">Lisensi</string>
+    <string name="mit_license">Lisensi MIT</string>
+    <string name="mit_license_text">Hak Cipta &#169; 2026 I Putu Agus Wahyu Dupayana\n\nIzin dengan ini diberikan, secara gratis, kepada siapa pun yang memperoleh salinan perangkat lunak ini dan file dokumentasi terkait (\"Perangkat Lunak\"), untuk menggunakan Perangkat Lunak tanpa batasan, termasuk tanpa batasan hak untuk menggunakan, menyalin, memodifikasi, menggabungkan, menerbitkan, mendistribusikan, mensublisensikan, dan/atau menjual salinan Perangkat Lunak, dan mengizinkan orang yang menerima Perangkat Lunak untuk melakukannya, dengan tunduk pada ketentuan berikut:\n\nPemberitahuan hak cipta di atas dan pemberitahuan izin ini harus dicantumkan dalam semua salinan atau bagian substansial dari Perangkat Lunak.\n\nPERANGKAT LUNAK INI DISEDIAKAN \"APA ADANYA\", TANPA JAMINAN APA PUN, TERSURAT MAUPUN TERSIRAT, TERMASUK NAMUN TIDAK TERBATAS PADA JAMINAN KELAYAKAN JUAL, KESESUAIAN UNTUK TUJUAN TERTENTU DAN KETIADAAN PELANGGARAN. DALAM HAL APA PUN, PENULIS ATAU PEMEGANG HAK CIPTA TIDAK BERTANGGUNG JAWAB ATAS KLAIM, KERUSAKAN ATAU KEWAJIBAN LAINNYA, BAIK DALAM TINDAKAN KONTRAK, PERBUATAN MELAWAN HUKUM ATAU LAINNYA, YANG TIMBUL DARI, DARI ATAU SEHUBUNGAN DENGAN PERANGKAT LUNAK ATAU PENGGUNAAN ATAU TRANSAKSI LAIN DALAM PERANGKAT LUNAK.</string>
 </resources>

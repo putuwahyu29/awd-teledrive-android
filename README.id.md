@@ -158,17 +158,14 @@ Pastikan Anda telah memasang Android Studio terbaru di komputer Anda.
 2. **Build dengan Gradle Wrapper**:
    Buka terminal di root direktori proyek, lalu jalankan:
    ```bash
-   # Membersihkan dan Build proyek
-   ./gradlew clean build
-   
    # Membuat APK Debug
    ./gradlew assembleDebug
+
+   # Membuat APK Release Unsigned (cocok untuk F-Droid)
+   ./gradlew assembleRelease
    ```
-3. **Instal ke Perangkat/Emulator**:
-   Hubungkan perangkat Android Anda (aktifkan mode USB debugging), lalu jalankan:
-   ```bash
-   ./gradlew installDebug
-   ```
+3. **Metadata F-Droid**:
+   Proyek ini menyertakan metadata [Fastlane](https://fastlane.tools/) di direktori `fastlane/metadata/android`, yang digunakan oleh F-Droid untuk mengambil deskripsi aplikasi dan konten lokal secara otomatis.
 
 ---
 
