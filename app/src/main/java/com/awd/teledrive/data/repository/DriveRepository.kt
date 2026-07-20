@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import android.widget.Toast
+import com.awd.teledrive.R
+import com.awd.teledrive.core.utils.FileUtils
 import com.awd.teledrive.data.local.DriveDao
 import com.awd.teledrive.data.local.DriveItemEntity
 import com.awd.teledrive.data.remote.TelegramClient
@@ -68,6 +71,11 @@ class DriveRepository @Inject constructor(
                     }
                     // Update by fileId as well to be sure
                     driveDao.updateLocalPath(fileId, file.local.path)
+                    
+                    if (uniqueId.isNotEmpty()) {
+                        checkAndMergeSplitFile(uniqueId)
+                        settingsRepository.triggerCacheCheck()
+                    }
                     
                     fetchFiles()
                 } else if (file.remote.isUploadingCompleted) {
@@ -136,7 +144,9 @@ class DriveRepository @Inject constructor(
                         entity.thumbnailPath,
                         entity.localPath,
                         entity.isStarred,
-                        entity.remoteUniqueId ?: ""
+                        entity.remoteUniqueId ?: "",
+                        splitGroupId = entity.splitGroupId,
+                        totalParts = entity.totalParts
                     )
                 }
             }
@@ -170,8 +180,12 @@ class DriveRepository @Inject constructor(
                 Log.d("DriveRepo", "Found ${result.messages.size} messages in chat $chatId")
                 val entities = result.messages.mapNotNull { message ->
                     if (message.sendingState != null) return@mapNotNull null
-                    when (val content = message.content) {
+                    
+                    var splitInfo: SplitMetadata? = null
+                    
+                    val entity = when (val content = message.content) {
                         is TdApi.MessageDocument -> {
+                            splitInfo = parseSplitMetadata(content.caption.text)
                             val thumb = content.document.thumbnail
                             if (thumb != null && thumb.file.local.path.isEmpty() && settingsRepository.isThumbnailAutoDownloadEnabled.value) {
                                 telegramClient.send(TdApi.DownloadFile(thumb.file.id, 1, 0, 0, false))
@@ -179,8 +193,8 @@ class DriveRepository @Inject constructor(
                             val docFile = content.document.document
                             DriveItemEntity(
                                 id = message.id,
-                                name = content.document.fileName,
-                                size = docFile.expectedSize,
+                                name = splitInfo?.originalName ?: content.document.fileName,
+                                size = if (splitInfo != null && splitInfo.partIndex != 0) docFile.expectedSize else docFile.expectedSize, // Keep individual part size or total if part 0
                                 mimeType = content.document.mimeType,
                                 telegramFileId = docFile.id,
                                 parentChatId = chatId,
@@ -195,7 +209,10 @@ class DriveRepository @Inject constructor(
                                 thumbnailFileId = thumb?.file?.id,
                                 remoteUniqueId = docFile.remote.uniqueId,
                                 thumbnailRemoteUniqueId = thumb?.file?.remote?.uniqueId,
-                                createdAt = message.date.toLong() * 1000
+                                createdAt = message.date.toLong() * 1000,
+                                splitGroupId = splitInfo?.groupId,
+                                partIndex = splitInfo?.partIndex ?: 0,
+                                totalParts = splitInfo?.totalParts ?: 1
                             )
                         }
                         is TdApi.MessagePhoto -> {
@@ -225,6 +242,7 @@ class DriveRepository @Inject constructor(
                             )
                         }
                         is TdApi.MessageVideo -> {
+                            splitInfo = parseSplitMetadata(content.caption.text)
                             val thumb = content.video.thumbnail
                             if (thumb != null && thumb.file.local.path.isEmpty() && settingsRepository.isThumbnailAutoDownloadEnabled.value) {
                                 telegramClient.send(TdApi.DownloadFile(thumb.file.id, 1, 0, 0, false))
@@ -232,7 +250,7 @@ class DriveRepository @Inject constructor(
                             val videoFile = content.video.video
                             DriveItemEntity(
                                 id = message.id,
-                                name = content.video.fileName,
+                                name = splitInfo?.originalName ?: content.video.fileName,
                                 size = videoFile.expectedSize,
                                 mimeType = content.video.mimeType,
                                 telegramFileId = videoFile.id,
@@ -244,14 +262,18 @@ class DriveRepository @Inject constructor(
                                 thumbnailFileId = thumb?.file?.id,
                                 remoteUniqueId = videoFile.remote.uniqueId,
                                 thumbnailRemoteUniqueId = thumb?.file?.remote?.uniqueId,
-                                createdAt = message.date.toLong() * 1000
+                                createdAt = message.date.toLong() * 1000,
+                                splitGroupId = splitInfo?.groupId,
+                                partIndex = splitInfo?.partIndex ?: 0,
+                                totalParts = splitInfo?.totalParts ?: 1
                             )
                         }
                         is TdApi.MessageAudio -> {
+                            splitInfo = parseSplitMetadata(content.caption.text)
                             val audioFile = content.audio.audio
                             DriveItemEntity(
                                 id = message.id,
-                                name = content.audio.fileName.ifEmpty { "Audio_${message.id}.mp3" },
+                                name = splitInfo?.originalName ?: content.audio.fileName.ifEmpty { "Audio_${message.id}.mp3" },
                                 size = audioFile.expectedSize,
                                 mimeType = content.audio.mimeType,
                                 telegramFileId = audioFile.id,
@@ -260,11 +282,15 @@ class DriveRepository @Inject constructor(
                                 localPath = audioFile.local.path.takeIf { it.isNotEmpty() },
                                 isStarred = false,
                                 remoteUniqueId = audioFile.remote.uniqueId,
-                                createdAt = message.date.toLong() * 1000
+                                createdAt = message.date.toLong() * 1000,
+                                splitGroupId = splitInfo?.groupId,
+                                partIndex = splitInfo?.partIndex ?: 0,
+                                totalParts = splitInfo?.totalParts ?: 1
                             )
                         }
                         else -> null
                     }
+                    entity
                 }
                 Log.d("DriveRepo", "Mapped ${entities.size} valid entities for chat $chatId")
                 scope.launch {
@@ -335,28 +361,73 @@ class DriveRepository @Inject constructor(
         val targetChatId = chatId ?: savedMessagesChatId
         if (targetChatId == 0L) return
 
+        val sourceFile = java.io.File(filePath)
+        if (sourceFile.length() > FileUtils.MAX_FILE_SIZE) {
+            if (!FileUtils.hasEnoughSpace(context, sourceFile.length())) {
+                val required = FileUtils.formatSize(sourceFile.length())
+                Toast.makeText(context, context.getString(R.string.err_low_storage, required), Toast.LENGTH_LONG).show()
+                return
+            }
+            
+            // Start service early to prevent Android from killing the process during splitting
+            startTransferService()
+            
+            scope.launch {
+                // Add a placeholder transfer to show "Preparing" in the UI
+                val placeholderId = "prep_${System.currentTimeMillis()}"
+                transferRepository.addTransfer(
+                    fileId = 0,
+                    remoteUniqueId = placeholderId,
+                    fileName = originalFileName,
+                    isDownload = false,
+                    totalSize = sourceFile.length(),
+                    status = "Memecah file... 0%"
+                )
+
+                try {
+                    val parts = FileUtils.splitFile(context, sourceFile) { progress ->
+                        val percent = (progress * 100).toInt()
+                        transferRepository.updateTransferManual(placeholderId, progress, "Memecah file... $percent%")
+                    }
+                    
+                    // Remove placeholder after splitting is done
+                    transferRepository.removeTransfer(placeholderId)
+
+                    val groupId = FileUtils.generateSplitGroupId()
+                    parts.forEachIndexed { index, part ->
+                        val caption = "[TD_SPLIT|ID:$groupId|PART:$index/${parts.size}|NAME:$originalFileName]"
+                        uploadSinglePart(part.absolutePath, originalFileName, targetChatId, caption)
+                    }
+                } catch (e: Exception) {
+                    Log.e("DriveRepo", "Split failed for $originalFileName", e)
+                    transferRepository.updateTransferManual(placeholderId, 0f, "Gagal memecah file")
+                }
+            }
+        } else {
+            uploadSinglePart(filePath, originalFileName, targetChatId)
+        }
+    }
+
+    private fun uploadSinglePart(filePath: String, originalFileName: String, targetChatId: Long, caption: String? = null) {
         startTransferService()
         val content = TdApi.InputMessageDocument(
             TdApi.InputFileLocal(filePath),
             null,
             false,
-            TdApi.FormattedText(originalFileName, emptyArray())
+            TdApi.FormattedText(caption ?: originalFileName, emptyArray())
         )
         telegramClient.send(TdApi.SendMessage(targetChatId, null, null, null, null, content)) { result ->
             if (result is TdApi.Message) {
                 val msgContent = result.content
                 if (msgContent is TdApi.MessageDocument) {
                     val doc = msgContent.document.document
-                    
-                    // Track for auto-deletion if it's in cache
                     if (filePath.contains(context.cacheDir.absolutePath)) {
                         deleteAfterUpload[doc.id] = filePath
                     }
-
                     transferRepository.addTransfer(
                         doc.id,
                         doc.remote.uniqueId,
-                        originalFileName,
+                        if (caption != null) "$originalFileName (Part)" else originalFileName,
                         isDownload = false,
                         totalSize = doc.expectedSize
                     )
@@ -409,6 +480,28 @@ class DriveRepository @Inject constructor(
     }
 
     fun downloadFile(messageId: Long, chatId: Long, fileName: String) {
+        scope.launch {
+            val entity = driveDao.getItemById(messageId, chatId)
+            if (entity?.splitGroupId != null) {
+                downloadSplitFile(entity.splitGroupId, fileName)
+            } else {
+                downloadSingleFile(messageId, chatId, fileName)
+            }
+        }
+    }
+
+    private fun downloadSplitFile(groupId: String, fileName: String) {
+        scope.launch {
+            val parts = driveDao.getSplitFileParts(groupId)
+            parts.forEach { part ->
+                if (part.localPath == null) {
+                    downloadSingleFile(part.id, part.parentChatId, part.name, shouldExport = false)
+                }
+            }
+        }
+    }
+
+    private fun downloadSingleFile(messageId: Long, chatId: Long, fileName: String, shouldExport: Boolean = true) {
         Log.d("DriveRepo", "Requesting download: $fileName (msgId: $messageId)")
         
         telegramClient.send(TdApi.GetMessage(chatId, messageId)) { result ->
@@ -434,13 +527,15 @@ class DriveRepository @Inject constructor(
 
                 if (file.local.isDownloadingCompleted && file.local.path.isNotEmpty()) {
                     Log.d("DriveRepo", "File already downloaded locally: ${file.local.path}")
-                    transferRepository.saveToPublicDownloads(file.local.path, fileName)
+                    if (shouldExport) {
+                        transferRepository.saveToPublicDownloads(file.local.path, fileName)
+                    }
                     transferRepository.addTransfer(msgFileId, remoteUniqueId, fileName, isDownload = true, totalSize = expectedSize, isCompleted = true)
                     return@send
                 }
 
                 if (remoteUniqueId.isNotEmpty()) {
-                    exportOnComplete[remoteUniqueId] = fileName
+                    if (shouldExport) exportOnComplete[remoteUniqueId] = fileName
                     transferRepository.addTransfer(msgFileId, remoteUniqueId, fileName, isDownload = true, totalSize = expectedSize)
                     startTransferService()
                     Log.d("DriveRepo", "Starting DownloadFile for uniqueId: $remoteUniqueId")
@@ -451,7 +546,7 @@ class DriveRepository @Inject constructor(
                     }
                 } else if (msgFileId != 0) {
                     val tempId = "temp_$msgFileId"
-                    exportOnComplete[tempId] = fileName
+                    if (shouldExport) exportOnComplete[tempId] = fileName
                     transferRepository.addTransfer(msgFileId, tempId, fileName, isDownload = true, totalSize = expectedSize)
                     startTransferService()
                     Log.d("DriveRepo", "Starting DownloadFile for tempId: $tempId")
@@ -735,6 +830,84 @@ class DriveRepository @Inject constructor(
             } else if (result is TdApi.Error) {
                 Log.e("DriveRepo", "Forward failed: ${result.message}")
             }
+        }
+    }
+
+    private fun checkAndMergeSplitFile(remoteUniqueId: String) {
+        scope.launch {
+            val entity = driveDao.getItemByUniqueId(remoteUniqueId) ?: return@launch
+            val groupId = entity.splitGroupId ?: return@launch
+            
+            val allParts = driveDao.getSplitFileParts(groupId)
+            if (allParts.size == entity.totalParts && allParts.all { it.localPath != null }) {
+                val totalSize = allParts.sumOf { it.size }
+                if (!FileUtils.hasEnoughSpace(context, totalSize)) {
+                    val required = FileUtils.formatSize(totalSize)
+                    Log.e("DriveRepo", "Insufficient space to merge $groupId. Needed: $required")
+                    // Show a notification or toast? Since this is in background, log is safer, 
+                    // but we should update the transfer state.
+                    return@launch
+                }
+                
+                val firstPart = allParts.first()
+                val originalName = firstPart.name
+                val cacheMergeDir = java.io.File(context.cacheDir, "merge_temp")
+                if (!cacheMergeDir.exists()) cacheMergeDir.mkdirs()
+                val targetFile = java.io.File(cacheMergeDir, originalName)
+                
+                val placeholderId = "merge_$groupId"
+                transferRepository.addTransfer(
+                    fileId = 0,
+                    remoteUniqueId = placeholderId,
+                    fileName = originalName,
+                    isDownload = true,
+                    totalSize = allParts.sumOf { it.size },
+                    status = "Menggabungkan file... 0%"
+                )
+
+                try {
+                    FileUtils.mergeFiles(allParts.map { java.io.File(it.localPath!!) }, targetFile) { progress ->
+                        val percent = (progress * 100).toInt()
+                        transferRepository.updateTransferManual(placeholderId, progress, "Menggabungkan file... $percent%")
+                    }
+
+                    // Save to public storage
+                    transferRepository.saveToPublicDownloads(targetFile.absolutePath, originalName)
+                    
+                    // Cleanup merged file
+                    targetFile.delete()
+                } catch (e: Exception) {
+                    Log.e("DriveRepo", "Merge failed for $groupId", e)
+                } finally {
+                    transferRepository.removeTransfer(placeholderId)
+                }
+            }
+        }
+    }
+
+    private data class SplitMetadata(
+        val groupId: String,
+        val partIndex: Int,
+        val totalParts: Int,
+        val originalName: String
+    )
+
+    private fun parseSplitMetadata(caption: String): SplitMetadata? {
+        if (!caption.startsWith("[TD_SPLIT|")) return null
+        return try {
+            val parts = caption.removePrefix("[TD_SPLIT|").removeSuffix("]").split("|")
+            val id = parts.find { it.startsWith("ID:") }?.removePrefix("ID:") ?: ""
+            val partInfo = parts.find { it.startsWith("PART:") }?.removePrefix("PART:")?.split("/")
+            val name = parts.find { it.startsWith("NAME:") }?.removePrefix("NAME:") ?: ""
+            
+            SplitMetadata(
+                groupId = id,
+                partIndex = partInfo?.get(0)?.toInt() ?: 0,
+                totalParts = partInfo?.get(1)?.toInt() ?: 1,
+                originalName = name
+            )
+        } catch (e: Exception) {
+            null
         }
     }
 }

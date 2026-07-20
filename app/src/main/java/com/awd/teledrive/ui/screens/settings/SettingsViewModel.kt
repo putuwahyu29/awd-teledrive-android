@@ -61,6 +61,27 @@ class SettingsViewModel @Inject constructor(
     val updateState = updateRepository.updateState
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UpdateState.Idle)
 
+    private val _showCacheWarning = MutableStateFlow(false)
+    val showCacheWarning = _showCacheWarning.asStateFlow()
+
+    init {
+        checkCacheLimit()
+        
+        viewModelScope.launch {
+            settingsRepository.cacheLimitEvent.collect {
+                checkCacheLimit()
+            }
+        }
+    }
+
+    fun checkCacheLimit() {
+        _showCacheWarning.value = settingsRepository.checkCacheLimit()
+    }
+
+    fun dismissCacheWarning() {
+        _showCacheWarning.value = false
+    }
+
     val versionName = VersionUtils.getVersionName(context)
     val versionCode = VersionUtils.getVersionCode(context)
 

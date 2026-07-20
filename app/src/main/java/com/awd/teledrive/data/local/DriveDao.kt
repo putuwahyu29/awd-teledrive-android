@@ -9,13 +9,13 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DriveDao {
-    @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId ORDER BY createdAt DESC")
+    @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId AND (splitGroupId IS NULL OR partIndex = 0) ORDER BY createdAt DESC")
     fun getItems(chatId: Long): Flow<List<DriveItemEntity>>
 
-    @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId")
+    @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId AND (splitGroupId IS NULL OR partIndex = 0)")
     fun getItemsFlow(chatId: Long): Flow<List<DriveItemEntity>>
 
-    @Query("SELECT * FROM drive_items WHERE isStarred = 1 ORDER BY createdAt DESC")
+    @Query("SELECT * FROM drive_items WHERE isStarred = 1 AND (splitGroupId IS NULL OR partIndex = 0) ORDER BY createdAt DESC")
     fun getStarredItems(): Flow<List<DriveItemEntity>>
 
     @Query("UPDATE drive_items SET isStarred = :isStarred WHERE id = :id AND parentChatId = :chatId")
@@ -84,14 +84,17 @@ interface DriveDao {
     @Query("DELETE FROM drive_items WHERE id < 0")
     suspend fun deletePendingItems()
 
-    @Query("SELECT * FROM drive_items WHERE name LIKE '%' || :query || '%' ORDER BY createdAt DESC")
+    @Query("SELECT * FROM drive_items WHERE name LIKE '%' || :query || '%' AND (splitGroupId IS NULL OR partIndex = 0) ORDER BY createdAt DESC")
     fun searchGlobal(query: String): Flow<List<DriveItemEntity>>
 
-    @Query("SELECT * FROM drive_items WHERE isFolder = 0 ORDER BY createdAt DESC")
+    @Query("SELECT * FROM drive_items WHERE isFolder = 0 AND (splitGroupId IS NULL OR partIndex = 0) ORDER BY createdAt DESC")
     fun getAllFiles(): Flow<List<DriveItemEntity>>
 
     @Query("SELECT SUM(size) FROM drive_items WHERE isFolder = 0")
     fun getTotalSize(): Flow<Long?>
+
+    @Query("SELECT * FROM drive_items WHERE splitGroupId = :groupId ORDER BY partIndex ASC")
+    suspend fun getSplitFileParts(groupId: String): List<DriveItemEntity>
 
     data class FileTypeStat(
         val category: String,

@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.room.Room
 import com.awd.teledrive.data.local.DriveDao
 import com.awd.teledrive.data.local.TeleDriveDatabase
+import com.awd.teledrive.data.local.TransferDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,5 +34,10 @@ object DatabaseModule {
     @Provides
     fun provideDriveDao(database: TeleDriveDatabase): DriveDao {
         return database.driveDao()
+    }
+
+    @Provides
+    fun provideTransferDao(database: TeleDriveDatabase): TransferDao {
+        return database.transferDao()
     }
 }

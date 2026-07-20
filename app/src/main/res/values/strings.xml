@@ -26,7 +26,7 @@
     <string name="starred">Starred</string>
     <string name="logout">Logout from Telegram</string>
     <string name="theme_dark">Dark Mode</string>
-    <string name="storage_info">Telegram offers unlimited cloud storage for files up to 2GB each.</string>
+    <string name="storage_info">Telegram offers unlimited cloud storage. Large files over 2GB are automatically split.</string>
     <string name="new_label">New</string>
     <string name="upload">Upload</string>
     <string name="camera">Camera</string>
@@ -135,6 +135,13 @@
     <string name="backing_up_media_count">Backing up media: %1$d / %2$d</string>
     <string name="uploading_file">Uploading: %s</string>
     <string name="downloading_file">Downloading: %s</string>
+    <string name="splitting_file">Splitting file: %s</string>
+    <string name="merging_file">Merging file: %s</string>
+    <string name="err_split_failed">Failed to split file: %s</string>
+    <string name="err_merge_failed">Failed to merge file: %s</string>
+    <string name="err_low_storage">Insufficient storage space. Need at least %s.</string>
+    <string name="large_file_title">Very Large File</string>
+    <string name="large_file_message">The file \"%s\" is over 2GB. All file types (Video, ZIP, etc.) are supported, but must be split into parts to be uploaded to Telegram. Continue?</string>
     <string name="all_transfers_completed">All transfers completed</string>
     <string name="transferring_count">Transferring %d files</string>
     <string name="downloading_count">Downloading %d files</string>

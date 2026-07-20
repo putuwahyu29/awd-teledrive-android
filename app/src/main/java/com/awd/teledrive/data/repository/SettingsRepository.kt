@@ -5,7 +5,9 @@ import android.util.Log
 import com.awd.teledrive.data.remote.TelegramClient
 import com.awd.teledrive.data.secure.SecureSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
@@ -29,6 +31,9 @@ class SettingsRepository @Inject constructor(
 
     private val _cacheAgeLimit = MutableStateFlow(secureSettings.getInt(KEY_CACHE_AGE_LIMIT, DEFAULT_CACHE_AGE))
     val cacheAgeLimit = _cacheAgeLimit.asStateFlow()
+
+    private val _cacheLimitEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val cacheLimitEvent = _cacheLimitEvent.asSharedFlow()
 
     private val _isThumbnailAutoDownloadEnabled = MutableStateFlow(secureSettings.getBoolean(KEY_THUMBNAIL_AUTO_DOWNLOAD, true))
     val isThumbnailAutoDownloadEnabled = _isThumbnailAutoDownloadEnabled.asStateFlow()
@@ -67,35 +72,41 @@ class SettingsRepository @Inject constructor(
     }
 
     /**
-     * Applies cache settings to TDLib. 
-     * Note: TDLib uses options for global limits.
+     * Applies cache settings to TDLib and checks if a cleanup is suggested.
+     * Returns true if the current usage exceeds the limit.
      */
+    fun checkCacheLimit(): Boolean {
+        val totalLimit = _cacheSizeLimit.value
+        if (totalLimit == 0L) return false
+
+        var currentUsage = 0L
+        currentUsage += calculateDirectorySize(context.filesDir)
+        currentUsage += calculateDirectorySize(context.cacheDir)
+        context.externalCacheDir?.let { currentUsage += calculateDirectorySize(it) }
+
+        return currentUsage > totalLimit
+    }
+
     fun applyCacheSettings() {
         val totalLimit = _cacheSizeLimit.value
         val ageLimit = _cacheAgeLimit.value
 
         if (totalLimit == 0L) {
-            // Unlimited
             telegramClient.send(TdApi.SetOption("storage_max_files_size", TdApi.OptionValueInteger(0)))
         } else {
-            // Calculate non-TDLib cache usage to adjust TDLib's portion
             var otherUsage = 0L
             otherUsage += calculateDirectorySize(context.cacheDir)
             context.externalCacheDir?.let { otherUsage += calculateDirectorySize(it) }
 
-            // TDLib should use (totalLimit - otherUsage), but at least a minimum (e.g. 50MB) to function
             val tdlibLimit = (totalLimit - otherUsage).coerceAtLeast(50 * 1024 * 1024L)
             telegramClient.send(TdApi.SetOption("storage_max_files_size", TdApi.OptionValueInteger(tdlibLimit)))
-            
-            // Immediate optimization to enforce the new limit
-            telegramClient.send(TdApi.OptimizeStorage(
-                tdlibLimit,
-                0, 0, 0, null, null, null, false, 0
-            ))
         }
         
-        // storage_max_time_from_last_access: Max time from the last access to a file in the storage, in seconds. 0 for unlimited.
         telegramClient.send(TdApi.SetOption("storage_max_time_from_last_access", TdApi.OptionValueInteger(ageLimit.toLong())))
+    }
+
+    fun triggerCacheCheck() {
+        _cacheLimitEvent.tryEmit(Unit)
     }
 
     private fun calculateDirectorySize(directory: java.io.File): Long {

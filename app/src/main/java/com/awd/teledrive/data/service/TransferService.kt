@@ -70,7 +70,9 @@ class TransferService : Service() {
             // Give some time for initial transfers to be added if service just started
             delay(1000)
             transferRepository.transfers.collectLatest { transfers ->
-                val transferring = transfers.values.filter { it.status == "Mengunduh" || it.status == "Mengunggah" }
+                val transferring = transfers.values.filter { 
+                    it.status != "Selesai" && it.status != "Dibatalkan" && !it.status.startsWith("Gagal")
+                }
                 val completed = transfers.values.filter { it.status == "Selesai" }
                 
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -95,10 +97,11 @@ class TransferService : Service() {
                     
                     val notification = if (transferring.size == 1) {
                         val transfer = transferring.first()
-                        val text = if (transfer.isDownload) {
-                            getString(R.string.downloading_file, transfer.fileName)
-                        } else {
-                            getString(R.string.uploading_file, transfer.fileName)
+                        val text = when {
+                            transfer.status.startsWith("Memecah") -> getString(R.string.splitting_file, transfer.fileName)
+                            transfer.status.startsWith("Menggabungkan") -> getString(R.string.merging_file, transfer.fileName)
+                            transfer.isDownload -> getString(R.string.downloading_file, transfer.fileName)
+                            else -> getString(R.string.uploading_file, transfer.fileName)
                         }
                         createNotification(
                             "$text ($percentage%)",

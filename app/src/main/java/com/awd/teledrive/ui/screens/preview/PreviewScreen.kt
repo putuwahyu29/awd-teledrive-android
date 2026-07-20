@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.ZoomInMap
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material.icons.outlined.StarOutline
@@ -319,15 +320,19 @@ fun PreviewPager(
             val file = items[pageIndex]
             val transfer = transfers[file.remoteUniqueId] ?: transfers.values.find { it.fileId == file.telegramFileId }
             
-            PreviewContent(
-                file = file,
-                transfer = transfer,
-                onOpenPlayer = onOpenPlayer,
-                onOpenPdf = onOpenPdf,
-                onOpenText = onOpenText,
-                isZoomEnabled = isZoomEnabled,
-                onLoadFile = { onLoadFile(file) }
-            )
+            if (file.isSplit) {
+                SplitFilePreviewPlaceholder(file)
+            } else {
+                PreviewContent(
+                    file = file,
+                    transfer = transfer,
+                    onOpenPlayer = onOpenPlayer,
+                    onOpenPdf = onOpenPdf,
+                    onOpenText = onOpenText,
+                    isZoomEnabled = isZoomEnabled,
+                    onLoadFile = { onLoadFile(file) }
+                )
+            }
         }
     }
     
@@ -543,6 +548,42 @@ fun PreviewContent(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun SplitFilePreviewPlaceholder(file: DriveItem.File) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(120.dp),
+                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "File Terlalu Besar",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "File ini terpecah menjadi ${file.totalParts} bagian di Telegram. Pratinjau (Preview) tidak didukung untuk file besar yang terpecah.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Silakan unduh file untuk membukanya secara utuh di perangkat Anda.",
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }

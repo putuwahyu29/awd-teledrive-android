@@ -53,8 +53,8 @@ Aplikasi ini merupakan bagian dari ekosistem lintas platform yang dirancang untu
 
 ## ✨ Fitur Utama
 
-*   **☁️ Penyimpanan Cloud Telegram Tanpa Batas**: Memanfaatkan API Telegram untuk mengunggah dan menyimpan berkas hingga 2GB per file tanpa batas kapasitas total.
-*   **📂 Manajemen File Profesional**: Buat direktori, ubah nama item, cari katalog file, dan tandai file favorit Anda.
+*   **☁️ Penyimpanan Cloud Telegram Tanpa Batas**: Memanfaatkan API Telegram untuk mengunggah dan menyimpan berkas berukuran apa pun. Teknologi **Auto-Split** bawaan secara otomatis menangani file yang lebih besar dari batas 2GB.
+*   **📂 Manajemen File Profesional**: Buat direktori, ubah nama item, cari katalog file, dan tandai file favorit Anda. Dukungan penuh untuk **Channel Terarsip** sebagai folder.
 *   **🔄 Layanan Pencadangan Otomatis**: Sinkronisasi media secara otomatis dari folder lokal pilihan Anda ke cloud di latar belakang menggunakan WorkManager Android.
 *   **🔒 Keamanan Ganda**: Kunci aplikasi dengan Master Password, Sidik Jari/Wajah (Biometrics), serta enkripsi data lokal yang aman (LazySodium).
 *   **🎨 Desain Dinamis Material 3**: Antarmuka modern yang secara dinamis mengubah warna tema berdasarkan wallpaper perangkat Anda serta pengaturan mode gelap/terang sistem.
@@ -74,7 +74,7 @@ Aplikasi ini merupakan bagian dari ekosistem lintas platform yang dirancang untu
 
 | Fitur | 📱 Awd TeleDrive Android | 💻 Awd TeleDrive Desktop | 📸 Awd TelePhoto Android |
 | :--- | :---: | :---: | :---: |
-| **Penyimpanan Cloud Tanpa Batas** | Ya (Hingga 2GB per file) | Ya (Ukuran file tidak terbatas) | Ya (Foto & Video) |
+| **Penyimpanan Cloud Tanpa Batas** | Ya (Auto-Split untuk >2GB) | Ya (Ukuran file tidak terbatas) | Ya (Foto & Video) |
 | **Manajer File & Folder** | Ya | Ya | Tampilan Galeri saja |
 | **Mode Sinkronisasi / Backup** | Pencadangan folder lokal | Sinkronisasi Satu & Dua Arah | Pencadangan Foto/Video otomatis |
 | **Keamanan / Enkripsi** | Master Password, Biometrik | Dekripsi AES-256 (Telephoto) | AES-256-GCM sisi Klien |

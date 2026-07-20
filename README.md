@@ -53,8 +53,8 @@ This application is part of a cross-platform ecosystem designed to turn Telegram
 
 ## ✨ Key Features
 
-*   **☁️ Unlimited Telegram Cloud Storage**: Leverage the Telegram API to upload and store files up to 2GB each without any storage limits.
-*   **📂 Professional File Management**: Create directories, rename items, search file catalogs, and mark files as favorites.
+*   **☁️ Unlimited Telegram Cloud Storage**: Leverage the Telegram API to upload and store files of any size. Built-in **Auto-Split** technology automatically handles files larger than the 2GB limit.
+*   **📂 Professional File Management**: Create directories, rename items, search file catalogs, and mark files as favorites. Support for **Archived Channels** as folders.
 *   **🔄 Auto Backup Service**: Automatically sync media from selected local folders to the cloud in the background using Android WorkManager.
 *   **🔒 Double-Layer Security**: App lock with Master Password, Biometrics unlock (Fingerprint/Face ID), and secure local data cryptography (LazySodium).
 *   **🎨 Material 3 Dynamic Design**: Modern user interface that changes themes dynamically based on your device's wallpaper and system-wide dark/light mode settings.
@@ -74,7 +74,7 @@ This application is part of a cross-platform ecosystem designed to turn Telegram
 
 | Feature | 📱 Awd TeleDrive Android | 💻 Awd TeleDrive Desktop | 📸 Awd TelePhoto Android |
 | :--- | :---: | :---: | :---: |
-| **Unlimited Cloud Storage** | Yes (Up to 2GB per file) | Yes (Any file size) | Yes (Photos & Videos) |
+| **Unlimited Cloud Storage** | Yes (Auto-Split for >2GB) | Yes (Any file size) | Yes (Photos & Videos) |
 | **File & Folder Manager** | Yes | Yes | Gallery View only |
 | **Sync / Backup Mode** | Local folder backup | One-Way & Two-Way Sync | Auto Photo/Video Backup |
 | **Security / Encryption** | Master Password, Biometrics | AES-256 Decryption (Telephoto) | Client-side AES-256-GCM |

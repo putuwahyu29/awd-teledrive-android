@@ -20,5 +20,21 @@ data class DriveItemEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val thumbnailFileId: Int? = null,
     val remoteUniqueId: String? = null,
-    val thumbnailRemoteUniqueId: String? = null
+    val thumbnailRemoteUniqueId: String? = null,
+    val splitGroupId: String? = null,
+    val partIndex: Int = 0,
+    val totalParts: Int = 1
+)
+
+@Entity(tableName = "transfers")
+data class TransferEntity(
+    @androidx.room.PrimaryKey val remoteUniqueId: String,
+    val fileId: Int,
+    val fileName: String,
+    val progress: Float,
+    val isDownload: Boolean,
+    val status: String,
+    val totalSize: Long,
+    val downloadedSize: Long,
+    val createdAt: Long = System.currentTimeMillis()
 )

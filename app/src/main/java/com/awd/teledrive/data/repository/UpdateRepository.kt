@@ -30,6 +30,8 @@ class UpdateRepository @Inject constructor(
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState = _updateState.asStateFlow()
 
+    private var hasDismissedUpdate = false
+
     private val json = Json { 
         ignoreUnknownKeys = true 
         coerceInputValues = true
@@ -37,6 +39,7 @@ class UpdateRepository @Inject constructor(
 
     suspend fun checkForUpdates(manual: Boolean = false) = withContext(Dispatchers.IO) {
         if (_updateState.value is UpdateState.Checking) return@withContext
+        if (!manual && hasDismissedUpdate) return@withContext
         
         _updateState.value = UpdateState.Checking
         
@@ -65,14 +68,17 @@ class UpdateRepository @Inject constructor(
             Log.e("UpdateRepository", "Failed to check for updates", e)
             _updateState.value = UpdateState.Error(e.message ?: "Unknown error")
         } finally {
-            if (!manual && _updateState.value is UpdateState.UpToDate) {
-                // If automatic check and up to date, reset to idle to avoid showing "Up to date" toast if not requested
+            if (!manual && (_updateState.value is UpdateState.UpToDate || _updateState.value is UpdateState.Error)) {
+                // If automatic check, reset to idle to avoid showing Toast/Dialog if not requested
                 _updateState.value = UpdateState.Idle
             }
         }
     }
 
     fun resetState() {
+        if (_updateState.value is UpdateState.NewVersionAvailable) {
+            hasDismissedUpdate = true
+        }
         _updateState.value = UpdateState.Idle
     }
 

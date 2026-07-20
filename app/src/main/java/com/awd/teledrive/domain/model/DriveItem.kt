@@ -16,8 +16,12 @@ sealed class DriveItem {
         val thumbnailPath: String? = null,
         val localPath: String? = null,
         override val isStarred: Boolean = false,
-        val remoteUniqueId: String = ""
-    ) : DriveItem()
+        val remoteUniqueId: String = "",
+        val splitGroupId: String? = null,
+        val totalParts: Int = 1
+    ) : DriveItem() {
+        val isSplit: Boolean get() = totalParts > 1
+    }
 
     data class Folder(
         override val id: Long,

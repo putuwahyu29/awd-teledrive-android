@@ -67,6 +67,16 @@ class BackupViewModel @Inject constructor(
         secureSettings.saveStringList("backup_folders", current)
     }
 
+    fun addCustomBackupFolder(path: String) {
+        if (path.isEmpty()) return
+        val current = _backupFolders.value.toMutableList()
+        if (!current.contains(path)) {
+            current.add(path)
+            _backupFolders.value = current
+            secureSettings.saveStringList("backup_folders", current)
+        }
+    }
+
     fun triggerManualBackup() {
         if (_backupFolders.value.isEmpty()) {
             viewModelScope.launch {

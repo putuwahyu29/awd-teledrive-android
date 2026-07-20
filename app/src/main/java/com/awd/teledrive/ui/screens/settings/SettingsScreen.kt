@@ -121,6 +121,7 @@ fun SettingsScreen(
     val downloadUri by viewModel.downloadUri.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val isThumbnailAutoDownloadEnabled by viewModel.isThumbnailAutoDownloadEnabled.collectAsState()
+    val showCacheWarning by viewModel.showCacheWarning.collectAsState()
 
     val context = LocalContext.current
 
@@ -183,7 +184,8 @@ fun SettingsScreen(
         onSetCacheAgeLimit = viewModel::setCacheAgeLimit,
         onSetThumbnailAutoDownload = viewModel::setThumbnailAutoDownloadEnabled,
         onCheckForUpdates = viewModel::checkForUpdates,
-        onDismissUpdateDialog = viewModel::resetUpdateState
+        showCacheWarning = showCacheWarning,
+        onDismissCacheWarning = viewModel::dismissCacheWarning
     )
 }
 
@@ -193,6 +195,7 @@ fun SettingsContent(
     uiState: SettingsUiState,
     isThumbnailAutoDownloadEnabled: Boolean,
     isBackupWifiOnly: Boolean,
+    showCacheWarning: Boolean,
     onBack: () -> Unit,
     onLogout: () -> Unit,
     onNavigateToBackupFolders: () -> Unit,
@@ -213,7 +216,7 @@ fun SettingsContent(
     onSetCacheAgeLimit: (Int) -> Unit,
     onSetThumbnailAutoDownload: (Boolean) -> Unit,
     onCheckForUpdates: () -> Unit,
-    onDismissUpdateDialog: () -> Unit
+    onDismissCacheWarning: () -> Unit
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showSetPasswordConfirm by remember { mutableStateOf(false) }
@@ -236,6 +239,23 @@ fun SettingsContent(
             context.contentResolver.takePersistableUriPermission(it, takeFlags)
             onSetDownloadUri(it.toString())
         }
+    }
+
+    if (showCacheWarning) {
+        AlertDialog(
+            onDismissRequest = onDismissCacheWarning,
+            title = { Text(stringResource(R.string.clear_cache_confirm_title)) },
+            text = { Text("Penyimpanan lokal Anda telah melewati batas yang ditentukan. Apakah Anda ingin membersihkan cache sekarang?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearCache()
+                    onDismissCacheWarning()
+                }) { Text("Bersihkan Sekarang", color = MaterialTheme.colorScheme.primary) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissCacheWarning) { Text(stringResource(R.string.later)) }
+            }
+        )
     }
 
     if (showLanguageRestartConfirm) {
@@ -661,49 +681,8 @@ fun SettingsContent(
                 modifier = Modifier.clickable { showLogoutConfirm = true }
             )
             
-            Spacer(modifier = Modifier.height(64.dp))
+    Spacer(modifier = Modifier.height(64.dp))
         }
-    }
-
-    // Handle Update Dialog
-    when (val state = uiState.updateState) {
-        is UpdateState.NewVersionAvailable -> {
-            AlertDialog(
-                onDismissRequest = onDismissUpdateDialog,
-                title = { Text(stringResource(R.string.update_available, state.release.name)) },
-                text = { 
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                        Text(state.release.body)
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(state.release.html_url))
-                        context.startActivity(intent)
-                        onDismissUpdateDialog()
-                    }) {
-                        Text(stringResource(R.string.open_browser))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = onDismissUpdateDialog) {
-                        Text(stringResource(R.string.later))
-                    }
-                }
-            )
-        }
-        is UpdateState.Error -> {
-            Toast.makeText(context, "Error: ${state.message}", Toast.LENGTH_SHORT).show()
-            onDismissUpdateDialog()
-        }
-        is UpdateState.UpToDate -> {
-            Toast.makeText(context, stringResource(R.string.up_to_date), Toast.LENGTH_SHORT).show()
-            onDismissUpdateDialog()
-        }
-        UpdateState.Checking -> {
-            // Show some indicator if needed, but for now we skip to keep it simple
-        }
-        UpdateState.Idle -> {}
     }
 }
 
@@ -731,6 +710,7 @@ fun SettingsPreview() {
             ),
             isThumbnailAutoDownloadEnabled = true,
             isBackupWifiOnly = true,
+            showCacheWarning = false,
             onBack = {},
             onLogout = {},
             onNavigateToBackupFolders = {},
@@ -751,7 +731,7 @@ fun SettingsPreview() {
             onSetCacheAgeLimit = {},
             onSetThumbnailAutoDownload = {},
             onCheckForUpdates = {},
-            onDismissUpdateDialog = {}
+            onDismissCacheWarning = {}
         )
     }
 }

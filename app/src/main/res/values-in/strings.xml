@@ -26,7 +26,7 @@
     <string name="starred">Berbintang</string>
     <string name="logout">Keluar dari Telegram</string>
     <string name="theme_dark">Mode Gelap</string>
-    <string name="storage_info">Telegram menawarkan penyimpanan awan tak terbatas untuk file hingga 2GB.</string>
+    <string name="storage_info">Telegram menawarkan penyimpanan awan tak terbatas. File besar di atas 2GB akan dipecah otomatis.</string>
     <string name="new_label">Baru</string>
     <string name="upload">Unggah</string>
     <string name="camera">Kamera</string>
@@ -135,6 +135,13 @@
     <string name="backing_up_media_count">Mencadangkan media: %1$d / %2$d</string>
     <string name="uploading_file">Mengunggah: %s</string>
     <string name="downloading_file">Downloading: %s</string>
+    <string name="splitting_file">Memecah file: %s</string>
+    <string name="merging_file">Menggabungkan file: %s</string>
+    <string name="err_split_failed">Gagal memecah file: %s</string>
+    <string name="err_merge_failed">Gagal menggabungkan file: %s</string>
+    <string name="err_low_storage">Ruang penyimpanan tidak cukup. Butuh setidaknya %s.</string>
+    <string name="large_file_title">File Sangat Besar</string>
+    <string name="large_file_message">File \"%s\" berukuran lebih dari 2GB. Semua jenis file (Video, ZIP, dll.) didukung, namun harus dipecah menjadi beberapa bagian agar dapat diunggah ke Telegram. Lanjutkan?</string>
     <string name="all_transfers_completed">Semua transfer selesai</string>
     <string name="transferring_count">Mentransfer %d file</string>
     <string name="downloading_count">Mengunduh %d file</string>

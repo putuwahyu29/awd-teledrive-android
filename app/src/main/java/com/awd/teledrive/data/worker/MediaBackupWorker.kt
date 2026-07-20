@@ -19,6 +19,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -53,15 +55,38 @@ class MediaBackupWorker(
             val backupFolders = secureSettings.getStringList("backup_folders")
             if (backupFolders.isEmpty()) return@withContext Result.success()
 
+            // Update status to Scanning
+            setForeground(createForegroundInfo(0, 0))
+
             val lastBackupTime = inputData.getLong("last_backup_time", 0L)
             val newMedia = scanNewMedia(lastBackupTime, backupFolders)
             
             if (newMedia.isEmpty()) return@withContext Result.success()
 
             newMedia.forEachIndexed { index, file ->
-                setProgress(workDataOf("progress" to index.toFloat() / newMedia.size, "fileName" to file.name))
-                setForeground(createForegroundInfo(index + 1, newMedia.size))
+                val currentCount = index + 1
+                val totalCount = newMedia.size
+                
+                // Set progress for UI
+                setProgress(workDataOf(
+                    "progress" to index.toFloat() / totalCount, 
+                    "fileName" to file.name,
+                    "current" to currentCount,
+                    "total" to totalCount
+                ))
+                
+                // Show notification "File X of Y"
+                setForeground(createForegroundInfo(currentCount, totalCount))
+                
+                // Upload and wait for it to be registered
                 driveRepository.uploadFile(file.absolutePath, file.name)
+                
+                // Add a small delay between starting uploads to prevent spamming the system
+                // and allow TDLib to process the file metadata
+                delay(2000)
+                
+                // Note: We don't wait for completion here because uploads can be very slow.
+                // We just ensure we don't spam the initial SendMessage requests.
             }
             
             secureSettings.saveLong("last_backup_time", System.currentTimeMillis())
@@ -108,20 +133,48 @@ class MediaBackupWorker(
 
     private fun scanNewMedia(sinceTimestamp: Long, folders: List<String>): List<File> {
         val files = mutableListOf<File>()
-        val projection = arrayOf(MediaStore.Images.Media.DATA, MediaStore.Images.Media.DATE_MODIFIED)
+        
+        // 1. Scan via MediaStore (fast for Gallery folders)
+        val projection = arrayOf(MediaStore.Images.Media.DATA)
         val selection = "${MediaStore.Images.Media.DATE_MODIFIED} > ?"
         val selectionArgs = arrayOf((sinceTimestamp / 1000).toString())
 
-        val contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        applicationContext.contentResolver.query(contentUri, projection, selection, selectionArgs, null)?.use { cursor ->
-            val dataIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-            while (cursor.moveToNext()) {
-                val path = cursor.getString(dataIndex)
-                if (folders.any { path.startsWith(it) }) {
-                    files.add(File(path))
+        val mediaUris = listOf(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        )
+
+        mediaUris.forEach { uri ->
+            applicationContext.contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
+                val dataIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+                while (cursor.moveToNext()) {
+                    val path = cursor.getString(dataIndex)
+                    if (folders.any { path.startsWith(it) }) {
+                        files.add(File(path))
+                    }
                 }
             }
         }
-        return files
+
+        // 2. Scan recursively for all files in the selected folders (handles non-media and sub-folders)
+        folders.forEach { folderPath ->
+            val rootFolder = File(folderPath)
+            if (rootFolder.exists() && rootFolder.isDirectory) {
+                scanFolderRecursive(rootFolder, sinceTimestamp, files)
+            }
+        }
+        
+        return files.distinctBy { it.absolutePath }.sortedBy { it.lastModified() }
+    }
+
+    private fun scanFolderRecursive(folder: File, sinceTimestamp: Long, resultList: MutableList<File>) {
+        folder.listFiles()?.forEach { file ->
+            if (file.isDirectory) {
+                scanFolderRecursive(file, sinceTimestamp, resultList)
+            } else if (file.isFile && file.lastModified() > sinceTimestamp) {
+                resultList.add(file)
+            }
+        }
     }
 }

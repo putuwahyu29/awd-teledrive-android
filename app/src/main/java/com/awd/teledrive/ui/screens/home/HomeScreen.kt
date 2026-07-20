@@ -115,8 +115,10 @@ import com.awd.teledrive.R
 import com.awd.teledrive.core.ConnectivityObserver
 import com.awd.teledrive.domain.model.DriveItem
 import com.awd.teledrive.ui.theme.TeledriveTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -227,28 +229,45 @@ fun HomeContent(
     var showDeleteConfirm by remember { mutableStateOf<List<DriveItem>?>(null) }
     var folderToMove by remember { mutableStateOf<DriveItem.Folder?>(null) }
     var folderToDownload by remember { mutableStateOf<DriveItem.Folder?>(null) }
+    var largeFileToUpload by remember { mutableStateOf<Pair<File, String>?>(null) }
+    var isPreparingFile by remember { mutableStateOf(false) }
     var newFolderName by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
 
     val multiFilePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
-        uris.forEach { uri ->
-            val cursor = context.contentResolver.query(uri, null, null, null, null)
-            val fileName = cursor?.use { c ->
-                val nameIndex = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                c.moveToFirst()
-                c.getString(nameIndex)
-            } ?: "file_${System.currentTimeMillis()}"
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        
+        scope.launch {
+            isPreparingFile = true
+            withContext(Dispatchers.IO) {
+                uris.forEach { uri ->
+                    val cursor = context.contentResolver.query(uri, null, null, null, null)
+                    val fileName = cursor?.use { c ->
+                        val nameIndex = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        c.moveToFirst()
+                        c.getString(nameIndex)
+                    } ?: "file_${System.currentTimeMillis()}"
 
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val tempFile = File(context.cacheDir, fileName)
-            inputStream?.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    val tempFile = File(context.cacheDir, fileName)
+                    inputStream?.use { input ->
+                        FileOutputStream(tempFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    
+                    withContext(Dispatchers.Main) {
+                        if (tempFile.length() > 2000 * 1024 * 1024L) {
+                            largeFileToUpload = tempFile to fileName
+                        } else {
+                            onUploadFile(tempFile.absolutePath, fileName)
+                        }
+                    }
                 }
             }
-            onUploadFile(tempFile.absolutePath, fileName)
+            isPreparingFile = false
         }
     }
 
@@ -256,12 +275,20 @@ fun HomeContent(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         bitmap?.let {
-            val fileName = "IMG_${System.currentTimeMillis()}.jpg"
-            val file = File(context.cacheDir, fileName)
-            FileOutputStream(file).use { out ->
-                it.compress(android.graphics.Bitmap.CompressFormat.JPEG, 100, out)
+            scope.launch {
+                isPreparingFile = true
+                withContext(Dispatchers.IO) {
+                    val fileName = "IMG_${System.currentTimeMillis()}.jpg"
+                    val file = File(context.cacheDir, fileName)
+                    FileOutputStream(file).use { out ->
+                        it.compress(android.graphics.Bitmap.CompressFormat.JPEG, 100, out)
+                    }
+                    withContext(Dispatchers.Main) {
+                        onUploadFile(file.absolutePath, fileName)
+                    }
+                }
+                isPreparingFile = false
             }
-            onUploadFile(file.absolutePath, fileName)
         }
     }
 
@@ -342,6 +369,40 @@ fun HomeContent(
             dismissButton = {
                 TextButton(onClick = { folderToDownload = null }) { Text(stringResource(R.string.cancel)) }
             }
+        )
+    }
+
+    if (largeFileToUpload != null) {
+        AlertDialog(
+            onDismissRequest = { largeFileToUpload = null },
+            title = { Text(stringResource(R.string.large_file_title)) },
+            text = { Text(stringResource(R.string.large_file_message, largeFileToUpload?.second ?: "")) },
+            confirmButton = {
+                Button(onClick = {
+                    largeFileToUpload?.let { (file, name) ->
+                        onUploadFile(file.absolutePath, name)
+                    }
+                    largeFileToUpload = null
+                }) { Text(stringResource(R.string.confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { largeFileToUpload = null }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+
+    if (isPreparingFile) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Menyiapkan File") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Sedang menyalin file ke memori sementara...")
+                }
+            },
+            confirmButton = {}
         )
     }
 
