@@ -54,8 +54,8 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             
             // Gunakan konfigurasi signing release jika tersedia dan valid
-            val releaseSigning = signingConfigs.getByName("release")
-            if (releaseSigning.storeFile != null) {
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning != null && releaseSigning.storeFile != null) {
                 signingConfig = releaseSigning
             }
 
