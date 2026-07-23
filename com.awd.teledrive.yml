@@ -21,6 +21,9 @@ Description: |-
   - File Management: Effortlessly upload, download, and organize your files.
   - Large File Support: Automatically splits files larger than 2GB for seamless Telegram uploads.
 
+AntiFeatures:
+  - NonFreeNet
+
 RepoType: git
 Repo: https://github.com/putuwahyu29/awd-teledrive-android
 
@@ -29,6 +32,7 @@ Builds:
     versionCode: 3
     commit: v1.2.0
     subdir: app
+    prebuild: sed -i '/foojay-resolver/d' settings.gradle.kts
     gradle:
       - yes
 
