@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.awd.teledrive.core.ConnectivityObserver
 import com.awd.teledrive.data.repository.DriveRepository
+import com.awd.teledrive.data.repository.ShareRepository
 import com.awd.teledrive.domain.model.DriveItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 
 enum class SortOrder {
@@ -29,6 +31,7 @@ enum class FilterType {
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val driveRepository: DriveRepository,
+    private val shareRepository: ShareRepository,
     private val connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
 
@@ -47,7 +50,7 @@ class HomeViewModel @Inject constructor(
     private val _currentFolderId = MutableStateFlow<Long?>(null)
     val currentFolderId = _currentFolderId.asStateFlow()
 
-    private val _currentFolderName = MutableStateFlow("Drive Saya")
+    private val _currentFolderName = MutableStateFlow<String?>(null)
     val currentFolderName = _currentFolderName.asStateFlow()
 
     private val _isGridView = MutableStateFlow(value = false)
@@ -121,7 +124,7 @@ class HomeViewModel @Inject constructor(
         _isGridView.value = !_isGridView.value
     }
 
-    fun navigateToFolder(folderId: Long?, folderName: String) {
+    fun navigateToFolder(folderId: Long?, folderName: String?) {
         _currentFolderId.value = folderId
         _currentFolderName.value = folderName
         fetchItems()
@@ -129,7 +132,7 @@ class HomeViewModel @Inject constructor(
 
     fun navigateBack() {
         if (_currentFolderId.value != null) {
-            navigateToFolder(null, "My TeleDrive")
+            navigateToFolder(null, null)
         }
     }
 
@@ -206,5 +209,18 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             driveRepository.toggleStarred(item)
         }
+    }
+
+    fun getFolderInviteLink(chatId: Long, onResult: (String?) -> Unit) {
+        shareRepository.getFolderInviteLink(chatId, onResult)
+    }
+
+    fun getFolderMembers(chatId: Long, onResult: (List<TdApi.User>) -> Unit) {
+        shareRepository.getChatMembers(chatId, onResult)
+    }
+
+    fun shareFileToPhone(phoneNumber: String, messageId: Long, onResult: (Boolean, String?) -> Unit) {
+        val chatId = _currentFolderId.value ?: driveRepository.getSavedMessagesChatId()
+        shareRepository.shareFileToPhone(phoneNumber, messageId, chatId, onResult)
     }
 }

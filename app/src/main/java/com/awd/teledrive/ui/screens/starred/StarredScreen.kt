@@ -41,7 +41,9 @@ import com.awd.teledrive.R
 import com.awd.teledrive.domain.model.DriveItem
 import com.awd.teledrive.ui.screens.home.DriveGridItem
 import com.awd.teledrive.ui.screens.home.DriveListItem
+import com.awd.teledrive.ui.screens.home.ShareDialog
 import com.awd.teledrive.ui.theme.TeledriveTheme
+import org.drinkless.tdlib.TdApi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,7 +74,10 @@ fun StarredScreen(
             selectedFiles.forEach { viewModel.downloadFile(it.id, it.parentChatId, it.name) }
             selectedFolders.forEach { viewModel.downloadFolderContents(it.telegramChatId) }
             selectedItems = emptySet()
-        }
+        },
+        onGetInviteLink = viewModel::getFolderInviteLink,
+        onGetMembers = viewModel::getFolderMembers,
+        onShareFile = viewModel::shareFileToPhone
     )
 }
 
@@ -88,9 +93,23 @@ fun StarredContent(
     onNavigateToPreview: (DriveItem.File) -> Unit,
     onToggleStarred: (DriveItem) -> Unit,
     onDownloadClick: (Long, Long, String) -> Unit,
-    onBulkDownload: () -> Unit
+    onBulkDownload: () -> Unit,
+    onGetInviteLink: (Long, (String?) -> Unit) -> Unit,
+    onGetMembers: (Long, (List<TdApi.User>) -> Unit) -> Unit,
+    onShareFile: (String, Long, (Boolean, String?) -> Unit) -> Unit
 ) {
     val isSelectionMode = selectedItems.isNotEmpty()
+    var shareItem by remember { mutableStateOf<DriveItem?>(null) }
+
+    if (shareItem != null) {
+        ShareDialog(
+            item = shareItem!!,
+            onDismiss = { shareItem = null },
+            onGetInviteLink = onGetInviteLink,
+            onGetMembers = onGetMembers,
+            onShareFile = onShareFile
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -166,6 +185,7 @@ fun StarredContent(
                                 if (!isSelectionMode) onSelectionChange(setOf(item.id))
                             },
                             onStarClick = { onToggleStarred(item) },
+                            onShareClick = { shareItem = item },
                             onDownloadClick = {
                                 if (item is DriveItem.File) onDownloadClick(item.id, item.parentChatId, item.name)
                             }
@@ -190,6 +210,7 @@ fun StarredContent(
                                 if (!isSelectionMode) onSelectionChange(setOf(item.id))
                             },
                             onStarClick = { onToggleStarred(item) },
+                            onShareClick = { shareItem = item },
                             onDownloadClick = {
                                 if (item is DriveItem.File) onDownloadClick(item.id, item.parentChatId, item.name)
                             }
@@ -217,7 +238,10 @@ fun StarredPreview() {
             onNavigateToPreview = {},
             onToggleStarred = {},
             onDownloadClick = { _, _, _ -> },
-            onBulkDownload = {}
+            onBulkDownload = {},
+            onGetInviteLink = { _, _ -> },
+            onGetMembers = { _, _ -> },
+            onShareFile = { _, _, _ -> }
         )
     }
 }

@@ -1,5 +1,15 @@
 # Changelog / Riwayat Perubahan
 
+## [1.2.1] - 2026-07-25
+### Fixed / Diperbaiki
+- **EN:** Safe release signingConfig lookup for F-Droid build.
+- **ID:** Pencarian signingConfig yang aman untuk build F-Droid.
+- **EN:** Updated build configuration and metadata for F-Droid compatibility.
+- **ID:** Memperbarui konfigurasi build dan metadata untuk kompatibilitas F-Droid.
+### Changed / Diubah
+- **EN:** Removed unnecessary metadata files.
+- **ID:** Menghapus file metadata yang tidak diperlukan.
+
 ## [1.2.0] - 2026-07-20
 ### Added / Ditambahkan
 - **EN:** Support for files over 2GB with automatic splitting.

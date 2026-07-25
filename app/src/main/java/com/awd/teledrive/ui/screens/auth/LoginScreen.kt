@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockPerson
@@ -242,7 +243,15 @@ fun LoginContent(
                                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                                     singleLine = true,
                                     shape = MaterialTheme.shapes.medium,
-                                    leadingIcon = { Icon(Icons.Default.VpnKey, null) }
+                                    leadingIcon = { Icon(Icons.Default.VpnKey, null) },
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                            clipboardManager.primaryClip?.getItemAt(0)?.text?.let { apiId = it.toString() }
+                                        }) {
+                                            Icon(Icons.Default.ContentPaste, contentDescription = "Paste")
+                                        }
+                                    }
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 OutlinedTextField(
@@ -254,7 +263,15 @@ fun LoginContent(
                                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                                     singleLine = true,
                                     shape = MaterialTheme.shapes.medium,
-                                    leadingIcon = { Icon(Icons.Default.Tag, null) }
+                                    leadingIcon = { Icon(Icons.Default.Tag, null) },
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                            clipboardManager.primaryClip?.getItemAt(0)?.text?.let { apiHash = it.toString() }
+                                        }) {
+                                            Icon(Icons.Default.ContentPaste, contentDescription = "Paste")
+                                        }
+                                    }
                                 )
                             }
                         }

@@ -3,6 +3,7 @@ package com.awd.teledrive.ui.screens.starred
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.awd.teledrive.data.repository.DriveRepository
+import com.awd.teledrive.data.repository.ShareRepository
 import com.awd.teledrive.domain.model.DriveItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,11 +12,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 
 @HiltViewModel
 class StarredViewModel @Inject constructor(
-    private val driveRepository: DriveRepository
+    private val driveRepository: DriveRepository,
+    private val shareRepository: ShareRepository
 ) : ViewModel() {
 
     val starredItems: StateFlow<List<DriveItem>> = driveRepository.getStarredItems()
@@ -43,6 +46,23 @@ class StarredViewModel @Inject constructor(
     fun downloadFolderContents(chatId: Long) {
         viewModelScope.launch {
             driveRepository.downloadFolderContents(chatId)
+        }
+    }
+
+    fun getFolderInviteLink(chatId: Long, callback: (String?) -> Unit) {
+        shareRepository.getFolderInviteLink(chatId, callback)
+    }
+
+    fun getFolderMembers(chatId: Long, callback: (List<TdApi.User>) -> Unit) {
+        shareRepository.getChatMembers(chatId, callback)
+    }
+
+    fun shareFileToPhone(phoneNumber: String, messageId: Long, onResult: (Boolean, String?) -> Unit) {
+        val item = starredItems.value.find { it.id == messageId } as? DriveItem.File
+        if (item != null) {
+            shareRepository.shareFileToPhone(phoneNumber, messageId, item.parentChatId, onResult)
+        } else {
+            onResult(false, "Item not found or not a file")
         }
     }
 }
