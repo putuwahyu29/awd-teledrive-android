@@ -1,0 +1,3 @@
+- Safe release signing configuration for F-Droid.
+- Updated build configuration and metadata.
+- Improved stability and metadata handling.

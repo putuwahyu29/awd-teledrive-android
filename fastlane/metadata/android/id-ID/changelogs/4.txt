@@ -1,0 +1,3 @@
+- Konfigurasi penandatanganan rilis yang aman untuk build F-Droid.
+- Pembaruan konfigurasi build dan metadata.
+- Peningkatan stabilitas dan penanganan metadata.

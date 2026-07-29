@@ -1,0 +1,5 @@
+- Virtual folder system and cloud metadata sync via Saved Messages.
+- File and folder sharing system.
+- Enhanced Home UI with distinct folder colors.
+- Metadata backup tool (JSON export/import).
+- Improved folder navigation and discovery logic.

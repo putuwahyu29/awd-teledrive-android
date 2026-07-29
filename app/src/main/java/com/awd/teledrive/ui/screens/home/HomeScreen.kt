@@ -1635,7 +1635,7 @@ fun ShareDialog(
 private fun getFileIconAndColor(item: DriveItem): Pair<ImageVector, Color> {
     return if (item is DriveItem.Folder) {
         if (item.isVirtual) {
-            Icons.Default.Folder to MaterialTheme.colorScheme.secondary
+            Icons.Default.Folder to MaterialTheme.colorScheme.tertiary
         } else {
             Icons.Default.Folder to MaterialTheme.colorScheme.primary
         }

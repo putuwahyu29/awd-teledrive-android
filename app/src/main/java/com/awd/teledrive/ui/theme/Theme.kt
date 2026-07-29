@@ -21,6 +21,8 @@ fun TeledriveTheme(
             onPrimaryContainer = Color.White,
             secondary = primaryColor.copy(alpha = 0.7f),
             onSecondary = Color.White,
+            tertiary = Color(0xFFFFC107), // Amber for Virtual Folders
+            onTertiary = Color.Black,
             surface = Color(0xFF1C1B1F),
             onSurface = Color(0xFFE6E1E5)
         )
@@ -32,6 +34,8 @@ fun TeledriveTheme(
             onPrimaryContainer = primaryColor,
             secondary = primaryColor.copy(alpha = 0.8f),
             onSecondary = Color.White,
+            tertiary = Color(0xFFFFA000), // Darker Amber for light theme
+            onTertiary = Color.White,
             surface = Color(0xFFFFFBFE),
             onSurface = Color(0xFF1C1B1F)
         )

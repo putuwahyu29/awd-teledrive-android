@@ -1,0 +1,5 @@
+- Sistem folder virtual dan sinkronisasi metadata cloud via Pesan Tersimpan.
+- Sistem berbagi file dan folder.
+- Peningkatan UI Beranda dengan warna folder yang berbeda.
+- Alat pencadangan metadata (ekspor/impor JSON).
+- Peningkatan logika navigasi dan deteksi folder.
