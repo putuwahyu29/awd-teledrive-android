@@ -23,7 +23,10 @@ data class DriveItemEntity(
     val thumbnailRemoteUniqueId: String? = null,
     val splitGroupId: String? = null,
     val partIndex: Int = 0,
-    val totalParts: Int = 1
+    val totalParts: Int = 1,
+    val isVirtual: Boolean = false,
+    val virtualId: String? = null,
+    val virtualParentId: String? = "0"
 )
 
 @Entity(tableName = "transfers")

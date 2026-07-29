@@ -9,11 +9,11 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DriveDao {
-    @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId AND (splitGroupId IS NULL OR partIndex = 0) ORDER BY createdAt DESC")
-    fun getItems(chatId: Long): Flow<List<DriveItemEntity>>
+    @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId AND (splitGroupId IS NULL OR partIndex = 0) AND virtualParentId = :virtualParentId ORDER BY createdAt DESC")
+    fun getItemsFlow(chatId: Long, virtualParentId: String): Flow<List<DriveItemEntity>>
 
-    @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId AND (splitGroupId IS NULL OR partIndex = 0)")
-    fun getItemsFlow(chatId: Long): Flow<List<DriveItemEntity>>
+    @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId AND (splitGroupId IS NULL OR partIndex = 0) AND virtualParentId = :virtualParentId")
+    fun getItemsByVirtualParent(chatId: Long, virtualParentId: String): Flow<List<DriveItemEntity>>
 
     @Query("SELECT * FROM drive_items WHERE isStarred = 1 AND (splitGroupId IS NULL OR partIndex = 0) ORDER BY createdAt DESC")
     fun getStarredItems(): Flow<List<DriveItemEntity>>
@@ -26,6 +26,9 @@ interface DriveDao {
 
     @Query("SELECT * FROM drive_items WHERE remoteUniqueId = :uniqueId LIMIT 1")
     suspend fun getItemByUniqueId(uniqueId: String): DriveItemEntity?
+
+    @Query("SELECT * FROM drive_items WHERE virtualId = :vId LIMIT 1")
+    suspend fun getVirtualFolderById(vId: String): DriveItemEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItems(items: List<DriveItemEntity>)
@@ -45,7 +48,7 @@ interface DriveDao {
         }
 
         val toDelete = existingItems.filter { item ->
-            item.id !in newItemIds && (!preserveFolders || !item.isFolder)
+            item.id !in newItemIds && (!preserveFolders || !item.isFolder) && !item.isVirtual
         }.map { it.id }
         
         if (toDelete.isNotEmpty()) {

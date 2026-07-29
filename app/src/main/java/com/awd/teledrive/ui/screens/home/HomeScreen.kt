@@ -82,7 +82,6 @@ import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -161,6 +160,7 @@ fun HomeScreen(
     val isInitialLoading by viewModel.isInitialLoading.collectAsState()
     val currentFolderId by viewModel.currentFolderId.collectAsState()
     val currentFolderName by viewModel.currentFolderName.collectAsState()
+    val currentVirtualFolderId by viewModel.currentVirtualFolderId.collectAsState()
     val isGridView by viewModel.isGridView.collectAsState()
     val connectivityStatus by viewModel.connectivityStatus.collectAsState()
 
@@ -173,6 +173,7 @@ fun HomeScreen(
         isRefreshing = isRefreshing,
         isInitialLoading = isInitialLoading,
         currentFolderId = currentFolderId,
+        currentVirtualFolderId = currentVirtualFolderId,
         currentFolderName = currentFolderName,
         isGridView = isGridView,
         connectivityStatus = connectivityStatus,
@@ -191,7 +192,7 @@ fun HomeScreen(
         onDownloadFile = viewModel::downloadFile,
         onDownloadFolderContents = viewModel::downloadFolderContents,
         onToggleStarred = viewModel::toggleStarred,
-        onNavigateToFolder = viewModel::navigateToFolder,
+        onNavigateToFolder = { chatId, vId, name -> viewModel.navigateToFolder(chatId, vId, name) },
         onNavigateBack = viewModel::navigateBack,
         onRefresh = viewModel::fetchItems,
         onGetInviteLink = viewModel::getFolderInviteLink,
@@ -212,6 +213,7 @@ fun HomeContent(
     isRefreshing: Boolean,
     isInitialLoading: Boolean,
     currentFolderId: Long?,
+    currentVirtualFolderId: String,
     currentFolderName: String?,
     isGridView: Boolean,
     connectivityStatus: ConnectivityObserver.Status,
@@ -222,7 +224,7 @@ fun HomeContent(
     onToggleViewMode: () -> Unit,
     onSetSortOrder: (SortOrder) -> Unit,
     onSetFilterType: (FilterType) -> Unit,
-    onCreateFolder: (String) -> Unit,
+    onCreateFolder: (String, Boolean) -> Unit,
     onUploadFile: (String, String) -> Unit,
     onDeleteItems: (List<DriveItem>) -> Unit,
     onMoveItems: (Set<Long>, Long) -> Unit,
@@ -230,7 +232,7 @@ fun HomeContent(
     onDownloadFile: (Long, Long, String) -> Unit,
     onDownloadFolderContents: (Long) -> Unit,
     onToggleStarred: (DriveItem) -> Unit,
-    onNavigateToFolder: (Long?, String?) -> Unit,
+    onNavigateToFolder: (Long?, String?, String?) -> Unit,
     onNavigateBack: () -> Unit,
     onRefresh: () -> Unit,
     onGetInviteLink: (Long, (String?) -> Unit) -> Unit,
@@ -325,7 +327,7 @@ fun HomeContent(
             showNewSheet -> showNewSheet = false
             isSearchActive -> isSearchActive = false
             isSelectionMode -> selectedItems = emptySet()
-            currentFolderId != null -> onNavigateBack()
+            (currentFolderId != null || currentVirtualFolderId != "0") -> onNavigateBack()
             else -> {
                 if (backPressedOnce) {
                     (context as? android.app.Activity)?.finish()
@@ -456,7 +458,8 @@ fun HomeContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    if (currentFolderId == null) {
+                    val isInsidePhysicalFolder = currentFolderId != null
+                    if (!isInsidePhysicalFolder) {
                         NewActionItem(Icons.Default.CreateNewFolder, stringResource(R.string.folder)) {
                             showNewSheet = false
                             showFolderDialog = true
@@ -475,24 +478,56 @@ fun HomeContent(
         }
     }
 
+    var isVirtualFolder by remember { mutableStateOf(true) }
+
     if (showFolderDialog) {
         AlertDialog(
             onDismissRequest = { showFolderDialog = false },
             title = { Text(stringResource(R.string.create_folder)) },
             text = {
-                OutlinedTextField(
-                    value = newFolderName,
-                    onValueChange = { newFolderName = it },
-                    label = { Text(stringResource(R.string.folder_name)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column {
+                    OutlinedTextField(
+                        value = newFolderName,
+                        onValueChange = { newFolderName = it },
+                        label = { Text(stringResource(R.string.folder_name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    val isAtRoot = currentFolderId == null && currentVirtualFolderId == "0"
+                    
+                    if (isAtRoot) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Switch(
+                                checked = isVirtualFolder,
+                                onCheckedChange = { isVirtualFolder = it }
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(if (isVirtualFolder) "Virtual Folder" else "Channel Folder", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    if (isVirtualFolder) "Sinkron antar device tanpa membuat channel baru" else "Membuat channel baru di Telegram",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else {
+                        // Reset to virtual if not at root
+                        isVirtualFolder = true
+                        Text(
+                            "Membuat folder virtual di dalam " + (currentFolderName ?: "folder ini"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         if (newFolderName.isNotBlank()) {
-                            onCreateFolder(newFolderName)
+                            onCreateFolder(newFolderName, isVirtualFolder)
                             newFolderName = ""
                             showFolderDialog = false
                         }
@@ -578,7 +613,7 @@ fun HomeContent(
     Scaffold(
         topBar = {
             AnimatedContent(
-                targetState = if (isSelectionMode) "selection" else if (currentFolderId != null && !isSearchActive) "folder" else "main",
+                targetState = if (isSelectionMode) "selection" else if ((currentFolderId != null || currentVirtualFolderId != "0") && !isSearchActive) "folder" else "main",
                 transitionSpec = {
                     (fadeIn() + slideInVertically { -it / 2 }).togetherWith(fadeOut() + slideOutVertically { -it / 2 })
                 },
@@ -660,7 +695,7 @@ fun HomeContent(
                     }
                     "folder" -> {
                         Column {
-                            CenterAlignedTopAppBar(
+                            TopAppBar(
                                 title = {
                                     Text(
                                         text = currentFolderName ?: stringResource(R.string.my_drive),
@@ -869,7 +904,7 @@ fun HomeContent(
                                                 }
                                             } else {
                                                 if (item is DriveItem.File) onNavigateToPreview(item)
-                                                else if (item is DriveItem.Folder) onNavigateToFolder(item.telegramChatId, item.name)
+                                                else if (item is DriveItem.Folder) onNavigateToFolder(if (item.isVirtual) currentFolderId else item.telegramChatId, item.virtualId, item.name)
                                             }
                                         },
                                         onLongClick = {
@@ -916,7 +951,7 @@ fun HomeContent(
                                                 }
                                             } else {
                                                 if (item is DriveItem.File) onNavigateToPreview(item)
-                                                else if (item is DriveItem.Folder) onNavigateToFolder(item.telegramChatId, item.name)
+                                                else if (item is DriveItem.Folder) onNavigateToFolder(if (item.isVirtual) currentFolderId else item.telegramChatId, item.virtualId, item.name)
                                             }
                                         },
                                         onLongClick = {
@@ -967,6 +1002,7 @@ fun HomePreview() {
             isRefreshing = false,
             isInitialLoading = false,
             currentFolderId = null,
+            currentVirtualFolderId = "0",
             currentFolderName = null,
             isGridView = false,
             connectivityStatus = ConnectivityObserver.Status.Available,
@@ -977,7 +1013,7 @@ fun HomePreview() {
             onToggleViewMode = {},
             onSetSortOrder = { _ -> },
             onSetFilterType = { _ -> },
-            onCreateFolder = { _ -> },
+            onCreateFolder = { _, _ -> },
             onUploadFile = { _, _ -> },
             onDeleteItems = { _ -> },
             onMoveItems = { _, _ -> },
@@ -985,7 +1021,7 @@ fun HomePreview() {
             onDownloadFile = { _, _, _ -> },
             onDownloadFolderContents = { _ -> },
             onToggleStarred = { _ -> },
-            onNavigateToFolder = { _, _ -> },
+            onNavigateToFolder = { _, _, _ -> },
             onNavigateBack = {},
             onRefresh = {},
             onGetInviteLink = { _, _ -> },
@@ -1441,7 +1477,12 @@ fun InfoDialog(item: DriveItem, onDismiss: () -> Unit) {
                         style = MaterialTheme.typography.bodyMedium
                     )
                 } else {
-                    Text(stringResource(R.string.type_label, stringResource(R.string.folder)), style = MaterialTheme.typography.bodyMedium)
+                    val folderTypeStr = if (item is DriveItem.Folder && item.isVirtual) {
+                        stringResource(R.string.virtual_folder)
+                    } else {
+                        stringResource(R.string.channel_folder)
+                    }
+                    Text(stringResource(R.string.type_label, folderTypeStr), style = MaterialTheme.typography.bodyMedium)
                 }
             }
         },
@@ -1593,7 +1634,11 @@ fun ShareDialog(
 @Composable
 private fun getFileIconAndColor(item: DriveItem): Pair<ImageVector, Color> {
     return if (item is DriveItem.Folder) {
-        Icons.Default.Folder to MaterialTheme.colorScheme.primary
+        if (item.isVirtual) {
+            Icons.Default.Folder to MaterialTheme.colorScheme.secondary
+        } else {
+            Icons.Default.Folder to MaterialTheme.colorScheme.primary
+        }
     } else {
         val file = item as DriveItem.File
         when {

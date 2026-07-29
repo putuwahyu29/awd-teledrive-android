@@ -18,7 +18,8 @@ sealed class DriveItem {
         override val isStarred: Boolean = false,
         val remoteUniqueId: String = "",
         val splitGroupId: String? = null,
-        val totalParts: Int = 1
+        val totalParts: Int = 1,
+        val virtualParentId: String? = "0"
     ) : DriveItem() {
         val isSplit: Boolean get() = totalParts > 1
     }
@@ -28,6 +29,9 @@ sealed class DriveItem {
         override val parentChatId: Long,
         override val name: String,
         val telegramChatId: Long,
-        override val isStarred: Boolean = false
+        override val isStarred: Boolean = false,
+        val isVirtual: Boolean = false,
+        val virtualId: String? = null,
+        val virtualParentId: String? = "0"
     ) : DriveItem()
 }

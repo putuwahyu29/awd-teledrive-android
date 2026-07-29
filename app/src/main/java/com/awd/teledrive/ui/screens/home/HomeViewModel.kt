@@ -50,6 +50,9 @@ class HomeViewModel @Inject constructor(
     private val _currentFolderId = MutableStateFlow<Long?>(null)
     val currentFolderId = _currentFolderId.asStateFlow()
 
+    private val _currentVirtualFolderId = MutableStateFlow("0")
+    val currentVirtualFolderId = _currentVirtualFolderId.asStateFlow()
+
     private val _currentFolderName = MutableStateFlow<String?>(null)
     val currentFolderName = _currentFolderName.asStateFlow()
 
@@ -67,13 +70,15 @@ class HomeViewModel @Inject constructor(
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val items: StateFlow<List<DriveItem>> = combine(
-        _currentFolderId,
-        _searchQuery,
-        _sortOrder,
-        _filterType,
-        driveRepository.getSavedMessagesChatIdFlow()
-    ) { folderId, query, order, filter, _ ->
-        driveRepository.getItems(folderId, query).map { items ->
+        listOf(_currentFolderId, _currentVirtualFolderId, _searchQuery, _sortOrder, _filterType, driveRepository.getSavedMessagesChatIdFlow())
+    ) { arr ->
+        val folderId = arr[0] as? Long
+        val virtualId = arr[1] as String
+        val query = arr[2] as String
+        val order = arr[3] as SortOrder
+        val filter = arr[4] as FilterType
+
+        driveRepository.getItems(folderId, virtualId, query).map { items ->
             val filteredByType = when (filter) {
                 FilterType.ALL -> items
                 FilterType.PHOTOS -> items.filter { it is DriveItem.File && it.mimeType.startsWith("image/") }
@@ -124,21 +129,36 @@ class HomeViewModel @Inject constructor(
         _isGridView.value = !_isGridView.value
     }
 
-    fun navigateToFolder(folderId: Long?, folderName: String?) {
+    fun navigateToFolder(folderId: Long?, virtualId: String?, folderName: String?) {
         _currentFolderId.value = folderId
+        _currentVirtualFolderId.value = virtualId ?: "0"
         _currentFolderName.value = folderName
         fetchItems()
     }
 
     fun navigateBack() {
-        if (_currentFolderId.value != null) {
-            navigateToFolder(null, null)
+        if (_currentVirtualFolderId.value != "0") {
+            val parentId = driveRepository.getParentVirtualId(_currentVirtualFolderId.value)
+            navigateToFolder(_currentFolderId.value, parentId, if (parentId == "0") null else "...") 
+        } else if (_currentFolderId.value != null) {
+            navigateToFolder(null, "0", null)
         }
     }
 
-    fun createFolder(name: String) {
+    fun createFolder(name: String, isVirtual: Boolean = true) {
         viewModelScope.launch {
-            driveRepository.createFolder(name)
+            if (isVirtual) {
+                val parentId = if (_currentVirtualFolderId.value != "0") {
+                    _currentVirtualFolderId.value
+                } else if (_currentFolderId.value != null) {
+                    _currentFolderId.value.toString()
+                } else {
+                    "0"
+                }
+                driveRepository.createVirtualFolder(name, parentId)
+            } else {
+                driveRepository.createFolder(name)
+            }
         }
     }
 
@@ -164,7 +184,7 @@ class HomeViewModel @Inject constructor(
 
     fun uploadFile(filePath: String, fileName: String) {
         viewModelScope.launch {
-            driveRepository.uploadFile(filePath, fileName, _currentFolderId.value)
+            driveRepository.uploadFile(filePath, fileName, _currentFolderId.value, _currentVirtualFolderId.value)
         }
     }
 

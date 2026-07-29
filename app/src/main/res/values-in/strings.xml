@@ -221,4 +221,23 @@
     <string name="license">Lisensi</string>
     <string name="mit_license">Lisensi MIT</string>
     <string name="mit_license_text">Hak Cipta &#169; 2026 I Putu Agus Wahyu Dupayana\n\nIzin dengan ini diberikan, secara gratis, kepada siapa pun yang memperoleh salinan perangkat lunak ini dan file dokumentasi terkait (\"Perangkat Lunak\"), untuk menggunakan Perangkat Lunak tanpa batasan, termasuk tanpa batasan hak untuk menggunakan, menyalin, memodifikasi, menggabungkan, menerbitkan, mendistribusikan, mensublisensikan, dan/atau menjual salinan Perangkat Lunak, dan mengizinkan orang yang menerima Perangkat Lunak untuk melakukannya, dengan tunduk pada ketentuan berikut:\n\nPemberitahuan hak cipta di atas dan pemberitahuan izin ini harus dicantumkan dalam semua salinan atau bagian substansial dari Perangkat Lunak.\n\nPERANGKAT LUNAK INI DISEDIAKAN \"APA ADANYA\", TANPA JAMINAN APA PUN, TERSURAT MAUPUN TERSIRAT, TERMASUK NAMUN TIDAK TERBATAS PADA JAMINAN KELAYAKAN JUAL, KESESUAIAN UNTUK TUJUAN TERTENTU DAN KETIADAAN PELANGGARAN. DALAM HAL APA PUN, PENULIS ATAU PEMEGANG HAK CIPTA TIDAK BERTANGGUNG JAWAB ATAS KLAIM, KERUSAKAN ATAU KEWAJIBAN LAINNYA, BAIK DALAM TINDAKAN KONTRAK, PERBUATAN MELAWAN HUKUM ATAU LAINNYA, YANG TIMBUL DARI, DARI ATAU SEHUBUNGAN DENGAN PERANGKAT LUNAK ATAU PENGGUNAAN ATAU TRANSAKSI LAIN DALAM PERANGKAT LUNAK.</string>
+    <string name="metadata_backup">Cadangan Metadata</string>
+    <string name="metadata_backup_desc">Ekspor atau impor struktur folder virtual (JSON)</string>
+    <string name="export_metadata">Ekspor Folder Virtual</string>
+    <string name="import_metadata">Impor Folder Virtual</string>
+    <string name="export_success">Metadata berhasil diekspor ke: %s</string>
+    <string name="import_success">Metadata berhasil diimpor</string>
+    <string name="import_confirm_title">Konfirmasi Impor</string>
+    <string name="import_confirm_message">Mengimpor metadata akan menimpa struktur folder virtual Anda saat ini. Lanjutkan?</string>
+
+    <string name="cloud_backups">Cadangan Awan</string>
+    <string name="cloud_backups_desc">Lihat dan pulihkan versi sebelumnya dari struktur folder Anda</string>
+    <string name="restore_from_cloud">Pulihkan dari Awan</string>
+    <string name="no_backups_found">Tidak ada cadangan awan ditemukan</string>
+    <string name="restore">Pulihkan</string>
+    <string name="metadata_sync_info">Cadangan metadata dibuat otomatis setiap hari saat struktur folder berubah, atau secara manual melalui tombol di atas.</string>
+    <string name="backup_metadata_cloud">Cadangkan Metadata ke Awan</string>
+    <string name="backup_metadata_cloud_desc">Simpan revisi manual folder Anda ke Telegram</string>
+    <string name="virtual_folder">Folder Virtual</string>
+    <string name="channel_folder">Folder Channel</string>
 </resources>

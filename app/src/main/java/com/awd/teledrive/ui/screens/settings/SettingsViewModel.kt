@@ -12,6 +12,7 @@ import com.awd.teledrive.data.repository.SettingsRepository
 import com.awd.teledrive.data.repository.UpdateRepository
 import com.awd.teledrive.data.repository.UpdateState
 import com.awd.teledrive.data.secure.SecureSettings
+import com.awd.teledrive.domain.model.CloudBackup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,19 @@ class SettingsViewModel @Inject constructor(
     private val secureSettings: SecureSettings,
     @param:ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    private val _cloudBackups = MutableStateFlow<List<CloudBackup>>(emptyList())
+    val cloudBackups = _cloudBackups.asStateFlow()
+
+    fun loadCloudBackups() {
+        driveRepository.fetchCloudBackups { backups ->
+            _cloudBackups.value = backups
+        }
+    }
+
+    fun restoreCloudBackup(messageId: Long, onResult: (Boolean) -> Unit) {
+        driveRepository.restoreManifestFromMessage(messageId, onResult)
+    }
     
     val internalCacheSize: StateFlow<Long> = driveRepository.getInternalCacheSize()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
@@ -177,5 +191,17 @@ class SettingsViewModel @Inject constructor(
 
     fun resetUpdateState() {
         updateRepository.resetState()
+    }
+
+    fun exportMetadata(): String {
+        return driveRepository.exportManifestToJson()
+    }
+
+    fun importMetadata(jsonStr: String): Boolean {
+        return driveRepository.importManifestFromJson(jsonStr)
+    }
+
+    fun triggerCloudMetadataBackup() {
+        driveRepository.createManualCloudBackup()
     }
 }

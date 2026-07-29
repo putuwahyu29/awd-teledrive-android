@@ -1,6 +1,8 @@
 package com.awd.teledrive.ui.screens.settings
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -12,9 +14,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -126,8 +130,36 @@ fun SettingsScreen(
     val updateState by viewModel.updateState.collectAsState()
     val isThumbnailAutoDownloadEnabled by viewModel.isThumbnailAutoDownloadEnabled.collectAsState()
     val showCacheWarning by viewModel.showCacheWarning.collectAsState()
+    val cloudBackups by viewModel.cloudBackups.collectAsState()
 
     val context = LocalContext.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            val json = viewModel.exportMetadata()
+            context.contentResolver.openOutputStream(it)?.use { out ->
+                out.write(json.toByteArray())
+            }
+            Toast.makeText(context, context.getString(R.string.export_success, it.path ?: ""), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            context.contentResolver.openInputStream(it)?.use { input ->
+                val json = input.bufferedReader().readText()
+                if (viewModel.importMetadata(json)) {
+                    Toast.makeText(context, context.getString(R.string.import_success), Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Import failed: Invalid file format", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         backupViewModel.feedback.collect { feedback ->
@@ -189,7 +221,28 @@ fun SettingsScreen(
         onSetCacheAgeLimit = viewModel::setCacheAgeLimit,
         onSetThumbnailAutoDownload = viewModel::setThumbnailAutoDownloadEnabled,
         showCacheWarning = showCacheWarning,
-        onDismissCacheWarning = viewModel::dismissCacheWarning
+        onDismissCacheWarning = viewModel::dismissCacheWarning,
+        onExportMetadata = {
+            exportLauncher.launch("teledrive_metadata_${System.currentTimeMillis()}.json")
+        },
+        onImportMetadata = {
+            importLauncher.launch("application/json")
+        },
+        onManualCloudBackup = {
+            viewModel.triggerCloudMetadataBackup()
+            Toast.makeText(context, "Backup sent to Saved Messages", Toast.LENGTH_SHORT).show()
+        },
+        cloudBackups = cloudBackups,
+        onLoadCloudBackups = viewModel::loadCloudBackups,
+        onRestoreCloudBackup = { msgId ->
+            viewModel.restoreCloudBackup(msgId) { success ->
+                if (success) {
+                    Toast.makeText(context, context.getString(R.string.import_success), Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Restore failed", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     )
 }
 
@@ -220,13 +273,21 @@ fun SettingsContent(
     onSetCacheSizeLimit: (Long) -> Unit,
     onSetCacheAgeLimit: (Int) -> Unit,
     onSetThumbnailAutoDownload: (Boolean) -> Unit,
-    onDismissCacheWarning: () -> Unit
+    onDismissCacheWarning: () -> Unit,
+    onExportMetadata: () -> Unit,
+    onImportMetadata: () -> Unit,
+    onManualCloudBackup: () -> Unit,
+    cloudBackups: List<com.awd.teledrive.domain.model.CloudBackup>,
+    onLoadCloudBackups: () -> Unit,
+    onRestoreCloudBackup: (Long) -> Unit
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showSetPasswordConfirm by remember { mutableStateOf(false) }
     var showLanguageRestartConfirm by remember { mutableStateOf(false) }
     var showCacheSizeDialog by remember { mutableStateOf(false) }
     var showCacheAgeDialog by remember { mutableStateOf(false) }
+    var showImportConfirm by remember { mutableStateOf(false) }
+    var showCloudBackupsDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -663,8 +724,53 @@ fun SettingsContent(
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            SettingsCategory(title = stringResource(R.string.metadata_backup))
+            SettingsClickableRow(
+                icon = Icons.Default.CloudUpload,
+                title = stringResource(R.string.export_metadata),
+                subtitle = stringResource(R.string.metadata_backup_desc),
+                onClick = onExportMetadata
+            )
+            SettingsClickableRow(
+                icon = Icons.Default.CloudUpload,
+                title = stringResource(R.string.backup_metadata_cloud),
+                subtitle = stringResource(R.string.backup_metadata_cloud_desc),
+                onClick = onManualCloudBackup
+            )
+            SettingsClickableRow(
+                icon = Icons.Default.CloudUpload,
+                title = stringResource(R.string.import_metadata),
+                subtitle = stringResource(R.string.import_confirm_message),
+                onClick = { showImportConfirm = true }
+            )
+            
+            SettingsClickableRow(
+                icon = Icons.Default.History,
+                title = stringResource(R.string.restore_from_cloud),
+                subtitle = stringResource(R.string.cloud_backups_desc),
+                onClick = { 
+                    onLoadCloudBackups()
+                    showCloudBackupsDialog = true 
+                }
+            )
+
+            Text(
+                text = stringResource(R.string.metadata_sync_info),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SettingsCategory(title = stringResource(R.string.system))
             
+            SettingsClickableRow(
+                icon = Icons.Default.Description,
+                title = stringResource(R.string.app_logs),
+                subtitle = stringResource(R.string.app_logs_desc),
+                onClick = onNavigateToLogs
+            )
+
             SettingsClickableRow(
                 icon = Icons.Default.Info,
                 title = stringResource(R.string.about_app),
@@ -672,12 +778,55 @@ fun SettingsContent(
                 onClick = onNavigateToAbout
             )
 
-            SettingsClickableRow(
-                icon = Icons.Default.Description,
-                title = stringResource(R.string.app_logs),
-                subtitle = stringResource(R.string.app_logs_desc),
-                onClick = onNavigateToLogs
-            )
+            if (showCloudBackupsDialog) {
+                AlertDialog(
+                    onDismissRequest = { showCloudBackupsDialog = false },
+                    title = { Text(stringResource(R.string.cloud_backups)) },
+                    text = {
+                        if (cloudBackups.isEmpty()) {
+                            Text(stringResource(R.string.no_backups_found), modifier = Modifier.padding(16.dp))
+                        } else {
+                            LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                                items(cloudBackups) { backup ->
+                                    val dateStr = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(backup.date))
+                                    ListItem(
+                                        headlineContent = { Text(dateStr) },
+                                        supportingContent = { Text(stringResource(R.string.items_count, backup.folderCount)) },
+                                        trailingContent = {
+                                            TextButton(onClick = {
+                                                onRestoreCloudBackup(backup.messageId)
+                                                showCloudBackupsDialog = false
+                                            }) {
+                                                Text(stringResource(R.string.restore))
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showCloudBackupsDialog = false }) { Text(stringResource(R.string.cancel)) }
+                    }
+                )
+            }
+
+            if (showImportConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showImportConfirm = false },
+                    title = { Text(stringResource(R.string.import_confirm_title)) },
+                    text = { Text(stringResource(R.string.import_confirm_message)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showImportConfirm = false
+                            onImportMetadata()
+                        }) { Text(stringResource(R.string.confirm)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showImportConfirm = false }) { Text(stringResource(R.string.cancel)) }
+                    }
+                )
+            }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             ListItem(
@@ -739,7 +888,13 @@ fun SettingsPreview() {
             onSetCacheSizeLimit = {},
             onSetCacheAgeLimit = {},
             onSetThumbnailAutoDownload = {},
-            onDismissCacheWarning = {}
+            onDismissCacheWarning = {},
+            onExportMetadata = {},
+            onImportMetadata = {},
+            onManualCloudBackup = {},
+            cloudBackups = emptyList(),
+            onLoadCloudBackups = {},
+            onRestoreCloudBackup = {}
         )
     }
 }
