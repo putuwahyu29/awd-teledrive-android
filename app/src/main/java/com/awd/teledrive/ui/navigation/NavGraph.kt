@@ -1,5 +1,12 @@
 package com.awd.teledrive.ui.navigation
 
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -7,19 +14,29 @@ import androidx.compose.material.icons.filled.PermMedia
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -61,6 +78,7 @@ sealed class Screen(val route: String, val icon: ImageVector? = null, val labelR
     object CloudAnalysis : Screen("cloud_analysis")
     object Logs : Screen("logs")
     object BackupSettings : Screen("backup_settings")
+    object SecureStorage : Screen("secure_storage")
     object Preview : Screen("preview/{chatId}/{fileId}?isMediaOnly={isMediaOnly}") {
         fun createRoute(chatId: Long, fileId: Long, isMediaOnly: Boolean = false) = 
             "preview/$chatId/$fileId?isMediaOnly=$isMediaOnly"
@@ -76,6 +94,7 @@ sealed class Screen(val route: String, val icon: ImageVector? = null, val labelR
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NavGraph(navController: NavHostController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -84,9 +103,11 @@ fun NavGraph(navController: NavHostController) {
     val securityViewModel: SecurityViewModel = hiltViewModel()
     val loginViewModel: com.awd.teledrive.ui.screens.auth.LoginViewModel = hiltViewModel()
     
-    val isSecurityEnabled by securityViewModel.isSecurityEnabled.collectAsState()
     val isLocked by securityViewModel.isLocked.collectAsState()
     val loginUiState by loginViewModel.uiState.collectAsState()
+    val isSecureActive by securityViewModel.isSecureModeActive.collectAsState(false)
+
+    var showUnlockDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(isLocked) {
         if (isLocked && currentRoute != Screen.Security.route) {
@@ -111,15 +132,84 @@ fun NavGraph(navController: NavHostController) {
     }
 
     val bottomNavScreens = listOf(Screen.Home, Screen.Media, Screen.Starred, Screen.Settings)
-    val shouldShowBottomBar = currentRoute in bottomNavScreens.map { it.route }
+    val shouldShowBottomBar = currentRoute in bottomNavScreens.map { it.route } && currentRoute != Screen.SecureStorage.route
 
     Scaffold(
         bottomBar = {
             if (shouldShowBottomBar) {
+                val context = LocalContext.current
+                val activity = context as? FragmentActivity
+                val executor = remember { ContextCompat.getMainExecutor(context) }
+                
+                val biometricPrompt = remember {
+                    if (activity != null) {
+                        BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
+                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                if (securityViewModel.unlockWithBiometric()) {
+                                    navController.navigate(Screen.SecureStorage.route)
+                                } else {
+                                    android.widget.Toast.makeText(context, "Password belum tersinkron. Masuk manual sekali untuk mengaktifkan biometrik.", android.widget.Toast.LENGTH_LONG).show()
+                                    showUnlockDialog = true
+                                }
+                            }
+                        })
+                    } else null
+                }
+
+                val promptInfo = remember {
+                    BiometricPrompt.PromptInfo.Builder()
+                        .setTitle("Buka Folder Aman")
+                        .setSubtitle("Gunakan sidik jari atau wajah")
+                        .setNegativeButtonText("Gunakan Password")
+                        .build()
+                }
+
                 NavigationBar {
                     bottomNavScreens.forEach { screen ->
+                        val isHome = screen == Screen.Home
                         NavigationBarItem(
-                            icon = { Icon(screen.icon!!, contentDescription = null) },
+                            icon = { 
+                                Box(
+                                    modifier = if (isHome) {
+                                        Modifier.combinedClickable(
+                                            onClick = {
+                                                if (currentRoute != screen.route) {
+                                                    navController.navigate(screen.route) {
+                                                        popUpTo(Screen.Home.route) { saveState = true }
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                    }
+                                                }
+                                            },
+                                            onLongClick = {
+                                                val isPasswordSet = securityViewModel.isPasswordSet.value
+                                                if (!isPasswordSet) {
+                                                    android.widget.Toast.makeText(navController.context, navController.context.getString(R.string.set_password_first), android.widget.Toast.LENGTH_LONG).show()
+                                                    return@combinedClickable
+                                                }
+
+                                                if (isSecureActive) {
+                                                    securityViewModel.lockSecureMode()
+                                                    android.widget.Toast.makeText(navController.context, navController.context.getString(R.string.secure_mode_disabled), android.widget.Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    val isBiometricEnabled = securityViewModel.isBiometricEnabled.value
+                                                    if (isBiometricEnabled && biometricPrompt != null) {
+                                                        try {
+                                                            biometricPrompt.authenticate(promptInfo)
+                                                        } catch (e: Exception) {
+                                                            showUnlockDialog = true
+                                                        }
+                                                    } else {
+                                                        showUnlockDialog = true
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    } else Modifier
+                                ) {
+                                    Icon(screen.icon!!, contentDescription = null) 
+                                }
+                            },
                             label = { Text(stringResource(screen.labelRes!!)) },
                             selected = currentRoute == screen.route,
                             onClick = {
@@ -136,10 +226,11 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
-    ) { innerPadding ->
+    )
+{ innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = if (isSecurityEnabled) Screen.Security.route else Screen.Login.route,
+            startDestination = Screen.Login.route, // Default, will be redirected by LaunchedEffects if needed
             modifier = Modifier.padding(
                 bottom = if (shouldShowBottomBar) innerPadding.calculateBottomPadding() else 0.dp
             )
@@ -147,7 +238,6 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.Security.route) {
                 MasterPasswordScreen(
                     onSuccess = {
-                        // Logic to return to Home after unlock
                         navController.navigate(Screen.Home.route) {
                             popUpTo(Screen.Security.route) { inclusive = true }
                         }
@@ -215,6 +305,18 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.Logs.route) {
                 LogsScreen(onBack = { navController.popBackStack() })
             }
+            composable(Screen.SecureStorage.route) {
+                com.awd.teledrive.ui.screens.security.SecureStorageScreen(
+                    onBack = { 
+                        navController.popBackStack()
+                        securityViewModel.lockSecureMode()
+                    },
+                    onNavigateToPreview = { file ->
+                        navController.navigate(Screen.Preview.createRoute(file.parentChatId, file.id))
+                    },
+                    onNavigateToTransfers = { navController.navigate(Screen.Transfers.route) }
+                )
+            }
             composable(
                 route = Screen.Preview.route,
                 arguments = listOf(
@@ -252,5 +354,43 @@ fun NavGraph(navController: NavHostController) {
                 TextViewerScreen(filePath = path, onBack = { navController.popBackStack() })
             }
         }
+    }
+
+    if (showUnlockDialog) {
+        var password by remember { mutableStateOf("") }
+        var error by remember { mutableStateOf<String?>(null) }
+        val context = navController.context
+        
+        AlertDialog(
+            onDismissRequest = { showUnlockDialog = false },
+            title = { Text(stringResource(R.string.unlock_secure_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.unlock_secure_desc))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it; error = null },
+                        label = { Text(stringResource(R.string.password)) },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        isError = error != null,
+                        supportingText = error?.let { { Text(it) } },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (securityViewModel.unlockSecureMode(password)) {
+                        showUnlockDialog = false
+                        navController.navigate(Screen.SecureStorage.route)
+                    } else {
+                        error = context.getString(R.string.incorrect_password)
+                    }
+                }) { Text(stringResource(R.string.unlock)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnlockDialog = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
     }
 }

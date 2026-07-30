@@ -59,6 +59,7 @@ fun AboutScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     val changelogs = listOf(
+                        R.string.changelog_v130,
                         R.string.changelog_v120,
                         R.string.changelog_v110,
                         R.string.changelog_v100

@@ -1,28 +1,43 @@
 package com.awd.teledrive.ui.screens.preview
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.awd.teledrive.data.repository.DriveRepository
 import com.awd.teledrive.data.repository.TransferRepository
+import com.awd.teledrive.data.secure.EncryptionManager
+import com.awd.teledrive.data.secure.SecureSessionManager
 import com.awd.teledrive.domain.model.DriveItem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
 class PreviewViewModel @Inject constructor(
     private val driveRepository: DriveRepository,
+    private val encryptionManager: EncryptionManager,
+    private val secureSessionManager: SecureSessionManager,
     transferRepository: TransferRepository,
     savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val chatId: Long = savedStateHandle.get<Long>("chatId") ?: 0L
     private val initialFileId: Long = savedStateHandle.get<Long>("fileId") ?: 0L
     private val isMediaOnly: Boolean = savedStateHandle.get<Boolean>("isMediaOnly") ?: false
+
+    private val _decryptedPaths = MutableStateFlow<Map<Long, String>>(emptyMap())
+    val decryptedPaths = _decryptedPaths.asStateFlow()
     
     val items: StateFlow<List<DriveItem.File>> = (if (isMediaOnly) {
         driveRepository.getAllFiles().map { list ->
@@ -64,6 +79,34 @@ class PreviewViewModel @Inject constructor(
     fun autoDownloadForPreview(file: DriveItem.File) {
         if (file.localPath == null) {
             driveRepository.downloadForPreview(file.id, file.parentChatId, file.name)
+        } else if (file.isEncrypted && !_decryptedPaths.value.containsKey(file.id)) {
+            decryptForPreview(file)
+        }
+    }
+
+    private fun decryptForPreview(file: DriveItem.File) {
+        val password = secureSessionManager.decryptedPassword.value ?: return
+        val localPath = file.localPath ?: return
+        
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val encryptedFile = File(localPath)
+                    val decryptedFile = File(context.cacheDir, "prev_dec_${file.id}_${file.name}")
+                    encryptionManager.decryptFile(encryptedFile, decryptedFile, password)
+                    _decryptedPaths.value = _decryptedPaths.value + (file.id to decryptedFile.absolutePath)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Cleanup decrypted preview files
+        _decryptedPaths.value.values.forEach { path ->
+            try { File(path).delete() } catch (e: Exception) {}
         }
     }
 

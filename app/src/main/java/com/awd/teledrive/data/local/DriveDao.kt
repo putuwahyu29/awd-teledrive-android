@@ -21,6 +21,9 @@ interface DriveDao {
     @Query("UPDATE drive_items SET isStarred = :isStarred WHERE id = :id AND parentChatId = :chatId")
     suspend fun updateStarred(id: Long, chatId: Long, isStarred: Boolean)
 
+    @Query("UPDATE drive_items SET name = :newName WHERE id = :id AND parentChatId = :chatId")
+    suspend fun renameItem(id: Long, chatId: Long, newName: String)
+
     @Query("SELECT * FROM drive_items WHERE id = :id AND parentChatId = :chatId LIMIT 1")
     suspend fun getItemById(id: Long, chatId: Long): DriveItemEntity?
 
@@ -59,6 +62,9 @@ interface DriveDao {
 
     @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId")
     suspend fun getItemsSync(chatId: Long): List<DriveItemEntity>
+
+    @Query("SELECT * FROM drive_items WHERE virtualParentId = :virtualId")
+    suspend fun getItemsByVirtualParentSync(virtualId: String): List<DriveItemEntity>
 
     @Query("DELETE FROM drive_items WHERE parentChatId = :chatId AND id IN (:ids)")
     suspend fun deleteItemsByIds(chatId: Long, ids: List<Long>)

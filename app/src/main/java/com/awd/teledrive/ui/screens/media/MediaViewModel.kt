@@ -3,10 +3,12 @@ package com.awd.teledrive.ui.screens.media
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.awd.teledrive.data.repository.DriveRepository
+import com.awd.teledrive.data.secure.SecureSessionManager
 import com.awd.teledrive.domain.model.DriveItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -14,21 +16,29 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MediaViewModel @Inject constructor(
-    private val driveRepository: DriveRepository
+    private val driveRepository: DriveRepository,
+    private val secureSessionManager: SecureSessionManager
 ) : ViewModel() {
 
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val mediaItems: StateFlow<List<DriveItem.File>> = driveRepository.getAllFiles()
-        .map { items ->
-            items.filter {
-                it.mimeType.startsWith("image/") || it.mimeType.startsWith("video/") 
-            }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val isSecureModeActive = secureSessionManager.decryptedPassword.map { it != null }
 
-    val folders: StateFlow<List<DriveItem.Folder>> = driveRepository.getItems(null)
-        .map { list -> list.filterIsInstance<DriveItem.Folder>() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val mediaItems: StateFlow<List<DriveItem.File>> = combine(
+        driveRepository.getAllFiles(),
+        isSecureModeActive
+    ) { items, secureActive ->
+        items.filter {
+            (it.mimeType.startsWith("image/") || it.mimeType.startsWith("video/")) &&
+            (secureActive || !it.isEncrypted)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val folders: StateFlow<List<DriveItem.Folder>> = combine(
+        driveRepository.getItems(null),
+        isSecureModeActive
+    ) { items, secureActive ->
+        items.filterIsInstance<DriveItem.Folder>().filter { secureActive || !it.isSecure }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun downloadFile(file: DriveItem.File) {
         viewModelScope.launch {

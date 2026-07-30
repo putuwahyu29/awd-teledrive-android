@@ -1,20 +1,19 @@
 # Changelog / Riwayat Perubahan
 
-## [1.3.0] - 2026-07-29
+## [1.3.0] - 2026-07-30
 ### Added / Ditambahkan
+- **EN:** Secure Folder system with AES-256 local encryption.
+- **ID:** Sistem Folder Aman dengan enkripsi lokal AES-256.
+- **EN:** Biometric and Master Password protection for secure areas.
+- **ID:** Perlindungan Biometrik dan Kata Sandi Utama untuk area aman.
+- **EN:** Full-screen dedicated Secure Storage view without bottom navigation.
+- **ID:** Tampilan Penyimpanan Aman khusus layar penuh tanpa navigasi bawah.
+- **EN:** Recursive folder deletion (permanently delete folders and all their contents).
+- **ID:** Penghapusan folder rekursif (hapus folder dan seluruh isinya secara permanen).
 - **EN:** Virtual folder system for advanced file organization without new channels.
 - **ID:** Sistem folder virtual untuk organisasi file tingkat lanjut tanpa perlu membuat channel baru.
-- **EN:** Cloud metadata synchronization using Telegram "Saved Messages".
-- **ID:** Sinkronisasi metadata cloud menggunakan Telegram "Pesan Tersimpan".
 - **EN:** File and folder sharing system with other users.
 - **ID:** Sistem berbagi file dan folder dengan pengguna lain.
-- **EN:** Metadata backup tool (JSON export/import).
-- **ID:** Alat pencadangan metadata (ekspor/impor JSON).
-### Changed / Diubah
-- **EN:** Enhanced Home UI with distinct colors for virtual and channel folders.
-- **ID:** Peningkatan UI Beranda dengan warna berbeda untuk folder virtual dan channel.
-- **EN:** Improved folder navigation and discovery logic.
-- **ID:** Peningkatan logika navigasi dan deteksi folder.
 
 ## [1.2.1] - 2026-07-25
 ### Fixed / Diperbaiki

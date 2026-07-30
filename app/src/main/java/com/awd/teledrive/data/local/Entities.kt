@@ -26,7 +26,9 @@ data class DriveItemEntity(
     val totalParts: Int = 1,
     val isVirtual: Boolean = false,
     val virtualId: String? = null,
-    val virtualParentId: String? = "0"
+    val virtualParentId: String? = "0",
+    val isSecure: Boolean = false,
+    val isEncrypted: Boolean = false
 )
 
 @Entity(tableName = "transfers")

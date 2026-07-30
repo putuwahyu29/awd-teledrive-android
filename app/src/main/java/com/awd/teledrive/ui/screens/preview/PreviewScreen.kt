@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PlayArrow
@@ -99,6 +101,7 @@ fun PreviewScreen(
     val items by viewModel.items.collectAsState()
     val folders by viewModel.folders.collectAsState()
     val transfers by viewModel.transfers.collectAsState()
+    val decryptedPaths by viewModel.decryptedPaths.collectAsState()
     
     if (items.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -112,6 +115,7 @@ fun PreviewScreen(
             items = items,
             folders = folders,
             transfers = transfers,
+            decryptedPaths = decryptedPaths,
             pagerState = pagerState,
             onBack = onBack,
             onOpenPlayer = onOpenPlayer,
@@ -136,6 +140,7 @@ fun PreviewPager(
     items: List<DriveItem.File>,
     folders: List<DriveItem.Folder>,
     transfers: Map<String, TransferInfo>,
+    decryptedPaths: Map<Long, String>,
     pagerState: PagerState,
     onBack: () -> Unit,
     onOpenPlayer: (String) -> Unit,
@@ -319,12 +324,14 @@ fun PreviewPager(
         ) { pageIndex ->
             val file = items[pageIndex]
             val transfer = transfers[file.remoteUniqueId] ?: transfers.values.find { it.fileId == file.telegramFileId }
+            val displayPath = decryptedPaths[file.id] ?: file.localPath
             
             if (file.isSplit) {
                 SplitFilePreviewPlaceholder(file)
             } else {
                 PreviewContent(
                     file = file,
+                    displayPath = displayPath,
                     transfer = transfer,
                     onOpenPlayer = onOpenPlayer,
                     onOpenPdf = onOpenPdf,
@@ -358,6 +365,7 @@ fun PreviewPager(
 @Composable
 fun PreviewContent(
     file: DriveItem.File,
+    displayPath: String?,
     transfer: TransferInfo?,
     onOpenPlayer: (String) -> Unit,
     onOpenPdf: (String) -> Unit,
@@ -408,7 +416,7 @@ fun PreviewContent(
                         .background(color.copy(alpha = 0.1f), MaterialTheme.shapes.medium)
                 }
             ) {
-                val thumbnailModel = file.localPath ?: file.thumbnailPath
+                val thumbnailModel = displayPath ?: file.thumbnailPath
                 if (thumbnailModel != null) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -433,7 +441,7 @@ fun PreviewContent(
                     )
                 }
                 
-                if (file.localPath == null && isTransferring) {
+                if (displayPath == null && isTransferring) {
                     CircularProgressIndicator(
                         progress = { transfer?.progress ?: 0f },
                         modifier = Modifier.size(if (isImage) 100.dp else 160.dp),
@@ -452,13 +460,13 @@ fun PreviewContent(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
                 
-                if (file.localPath == null && isTransferring) {
+                if (displayPath == null && isTransferring) {
                     Text(
                         text = "${(transfer?.progress?.times(100))?.toInt()}% Memuat...",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
-                } else if (file.localPath == null) {
+                } else if (displayPath == null) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = "Belum dimuat",
@@ -485,7 +493,7 @@ fun PreviewContent(
                 
                 Spacer(modifier = Modifier.height(48.dp))
                 
-                if (file.localPath != null) {
+                if (displayPath != null) {
                     val isInternalSupported = file.mimeType.startsWith("video/") || 
                                               file.mimeType.startsWith("audio/") || 
                                               file.mimeType == "application/pdf" ||
@@ -496,13 +504,13 @@ fun PreviewContent(
                             onClick = {
                                 when {
                                     file.mimeType.startsWith("video/") || file.mimeType.startsWith("audio/") -> {
-                                        onOpenPlayer(file.localPath)
+                                        onOpenPlayer(displayPath)
                                     }
                                     file.mimeType == "application/pdf" -> {
-                                        onOpenPdf(file.localPath)
+                                        onOpenPdf(displayPath)
                                     }
                                     file.mimeType == "text/plain" -> {
-                                        onOpenText(file.localPath)
+                                        onOpenText(displayPath)
                                     }
                                 }
                             },
@@ -516,7 +524,11 @@ fun PreviewContent(
                     } else {
                         Button(
                             onClick = {
-                                FileSharingHelper.openFileExternally(context, file.localPath, file.mimeType)
+                                try {
+                                    FileSharingHelper.openFileExternally(context, displayPath, file.mimeType)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Gagal membuka file", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.medium
@@ -527,7 +539,7 @@ fun PreviewContent(
                         }
                     }
                 }
-            } else if (file.localPath == null) {
+            } else if (displayPath == null) {
                 if (isTransferring) {
                     // Show floating progress for image
                     Text(
@@ -546,6 +558,19 @@ fun PreviewContent(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Muat Gambar")
                     }
+                }
+            }
+        }
+
+        if (file.isEncrypted && displayPath == null && !isTransferring) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Lock, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Text("File Terenkripsi", color = Color.White)
                 }
             }
         }

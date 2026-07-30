@@ -19,7 +19,8 @@ sealed class DriveItem {
         val remoteUniqueId: String = "",
         val splitGroupId: String? = null,
         val totalParts: Int = 1,
-        val virtualParentId: String? = "0"
+        val virtualParentId: String? = "0",
+        val isEncrypted: Boolean = false
     ) : DriveItem() {
         val isSplit: Boolean get() = totalParts > 1
     }
@@ -32,6 +33,7 @@ sealed class DriveItem {
         override val isStarred: Boolean = false,
         val isVirtual: Boolean = false,
         val virtualId: String? = null,
-        val virtualParentId: String? = "0"
+        val virtualParentId: String? = "0",
+        val isSecure: Boolean = false
     ) : DriveItem()
 }

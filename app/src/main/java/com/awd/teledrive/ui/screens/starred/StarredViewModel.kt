@@ -4,12 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.awd.teledrive.data.repository.DriveRepository
 import com.awd.teledrive.data.repository.ShareRepository
+import com.awd.teledrive.data.secure.SecureSessionManager
 import com.awd.teledrive.domain.model.DriveItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
@@ -18,11 +21,23 @@ import javax.inject.Inject
 @HiltViewModel
 class StarredViewModel @Inject constructor(
     private val driveRepository: DriveRepository,
-    private val shareRepository: ShareRepository
+    private val shareRepository: ShareRepository,
+    private val secureSessionManager: SecureSessionManager
 ) : ViewModel() {
 
-    val starredItems: StateFlow<List<DriveItem>> = driveRepository.getStarredItems()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val isSecureModeActive = secureSessionManager.decryptedPassword.map { it != null }
+
+    val starredItems: StateFlow<List<DriveItem>> = combine(
+        driveRepository.getStarredItems(),
+        isSecureModeActive
+    ) { items, secureActive ->
+        items.filter { item ->
+            when (item) {
+                is DriveItem.File -> secureActive || !item.isEncrypted
+                is DriveItem.Folder -> secureActive || !item.isSecure
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _isGridView = MutableStateFlow(false)
     val isGridView = _isGridView.asStateFlow()

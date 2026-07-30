@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -59,6 +60,7 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderZip
@@ -67,6 +69,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -185,6 +188,7 @@ fun HomeScreen(
         onSetSortOrder = viewModel::setSortOrder,
         onSetFilterType = viewModel::setFilterType,
         onCreateFolder = viewModel::createFolder,
+        isPasswordSet = viewModel.isPasswordSet(),
         onUploadFile = viewModel::uploadFile,
         onDeleteItems = viewModel::deleteItems,
         onMoveItems = viewModel::moveItems,
@@ -195,6 +199,7 @@ fun HomeScreen(
         onNavigateToFolder = { chatId, vId, name -> viewModel.navigateToFolder(chatId, vId, name) },
         onNavigateBack = viewModel::navigateBack,
         onRefresh = viewModel::fetchItems,
+        onRenameItem = viewModel::renameItem,
         onGetInviteLink = viewModel::getFolderInviteLink,
         onGetMembers = viewModel::getFolderMembers,
         onShareFile = viewModel::shareFileToPhone,
@@ -224,7 +229,8 @@ fun HomeContent(
     onToggleViewMode: () -> Unit,
     onSetSortOrder: (SortOrder) -> Unit,
     onSetFilterType: (FilterType) -> Unit,
-    onCreateFolder: (String, Boolean) -> Unit,
+    onCreateFolder: (String, Boolean, Boolean) -> Unit,
+    isPasswordSet: Boolean,
     onUploadFile: (String, String) -> Unit,
     onDeleteItems: (List<DriveItem>) -> Unit,
     onMoveItems: (Set<Long>, Long) -> Unit,
@@ -235,6 +241,7 @@ fun HomeContent(
     onNavigateToFolder: (Long?, String?, String?) -> Unit,
     onNavigateBack: () -> Unit,
     onRefresh: () -> Unit,
+    onRenameItem: (DriveItem, String) -> Unit,
     onGetInviteLink: (Long, (String?) -> Unit) -> Unit,
     onGetMembers: (Long, (List<TdApi.User>) -> Unit) -> Unit,
     onShareFile: (String, Long, (Boolean, String?) -> Unit) -> Unit,
@@ -253,6 +260,33 @@ fun HomeContent(
     var showFolderDialog by remember { mutableStateOf(false) }
     var showMoveDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf<List<DriveItem>?>(null) }
+    var itemToRename by remember { mutableStateOf<DriveItem?>(null) }
+    var renameValue by remember { mutableStateOf("") }
+
+    if (itemToRename != null) {
+        AlertDialog(
+            onDismissRequest = { itemToRename = null },
+            title = { Text("Ubah Nama") },
+            text = {
+                OutlinedTextField(
+                    value = renameValue,
+                    onValueChange = { renameValue = it },
+                    label = { Text("Nama Baru") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    itemToRename?.let { onRenameItem(it, renameValue) }
+                    itemToRename = null
+                }) { Text("Simpan") }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToRename = null }) { Text("Batal") }
+            }
+        )
+    }
     var shareItem by remember { mutableStateOf<DriveItem?>(null) }
     var folderToMove by remember { mutableStateOf<DriveItem.Folder?>(null) }
     var folderToDownload by remember { mutableStateOf<DriveItem.Folder?>(null) }
@@ -479,6 +513,7 @@ fun HomeContent(
     }
 
     var isVirtualFolder by remember { mutableStateOf(true) }
+    var isSecureFolder by remember { mutableStateOf(false) }
 
     if (showFolderDialog) {
         AlertDialog(
@@ -497,24 +532,54 @@ fun HomeContent(
                     val isAtRoot = currentFolderId == null && currentVirtualFolderId == "0"
                     
                     if (isAtRoot) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            androidx.compose.material3.Switch(
-                                checked = isVirtualFolder,
-                                onCheckedChange = { isVirtualFolder = it }
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(if (isVirtualFolder) "Virtual Folder" else "Channel Folder", style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    if (isVirtualFolder) "Sinkron antar device tanpa membuat channel baru" else "Membuat channel baru di Telegram",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            // Secure Folder Option
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                androidx.compose.material3.Switch(
+                                    checked = isSecureFolder,
+                                    onCheckedChange = { 
+                                        if (isPasswordSet) {
+                                            isSecureFolder = it
+                                            if (it) isVirtualFolder = false
+                                        } else if (it) {
+                                            Toast.makeText(context, "Setel Master Password di Pengaturan terlebih dahulu", Toast.LENGTH_LONG).show()
+                                        }
+                                    },
+                                    enabled = isPasswordSet
                                 )
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text("Folder Aman (Terenkripsi)", style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        "Grup Private terenkripsi. Membutuhkan Master Password.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            if (!isSecureFolder) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    androidx.compose.material3.Switch(
+                                        checked = isVirtualFolder,
+                                        onCheckedChange = { isVirtualFolder = it }
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Column {
+                                        Text(if (isVirtualFolder) "Virtual Folder" else "Channel Folder", style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            if (isVirtualFolder) "Sinkron antar device tanpa membuat channel baru" else "Membuat channel baru di Telegram",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
                         }
                     } else {
                         // Reset to virtual if not at root
                         isVirtualFolder = true
+                        isSecureFolder = false
                         Text(
                             "Membuat folder virtual di dalam " + (currentFolderName ?: "folder ini"),
                             style = MaterialTheme.typography.bodySmall,
@@ -527,8 +592,9 @@ fun HomeContent(
                 Button(
                     onClick = {
                         if (newFolderName.isNotBlank()) {
-                            onCreateFolder(newFolderName, isVirtualFolder)
+                            onCreateFolder(newFolderName, isVirtualFolder, isSecureFolder)
                             newFolderName = ""
+                            isSecureFolder = false
                             showFolderDialog = false
                         }
                     }
@@ -925,6 +991,10 @@ fun HomeContent(
                                             selectedItems = setOf(item.id)
                                             showMoveDialog = true
                                         },
+                                        onRenameClick = {
+                                            itemToRename = item
+                                            renameValue = item.name
+                                        },
                                         onDeleteClick = {
                                             showDeleteConfirm = listOf(item)
                                         }
@@ -972,6 +1042,10 @@ fun HomeContent(
                                             selectedItems = setOf(item.id)
                                             showMoveDialog = true
                                         },
+                                        onRenameClick = {
+                                            itemToRename = item
+                                            renameValue = item.name
+                                        },
                                         onDeleteClick = {
                                             showDeleteConfirm = listOf(item)
                                         }
@@ -1013,7 +1087,8 @@ fun HomePreview() {
             onToggleViewMode = {},
             onSetSortOrder = { _ -> },
             onSetFilterType = { _ -> },
-            onCreateFolder = { _, _ -> },
+            onCreateFolder = { _, _, _ -> },
+            isPasswordSet = true,
             onUploadFile = { _, _ -> },
             onDeleteItems = { _ -> },
             onMoveItems = { _, _ -> },
@@ -1024,6 +1099,7 @@ fun HomePreview() {
             onNavigateToFolder = { _, _, _ -> },
             onNavigateBack = {},
             onRefresh = {},
+            onRenameItem = { _, _ -> },
             onGetInviteLink = { _, _ -> },
             onGetMembers = { _, _ -> },
             onShareFile = { _, _, _ -> },
@@ -1150,11 +1226,23 @@ fun DriveListItem(
     onStarClick: () -> Unit,
     onShareClick: () -> Unit,
     onDownloadClick: () -> Unit,
+    onRenameClick: (() -> Unit)? = null,
     onMoveClick: (() -> Unit)? = null,
     onDeleteClick: (() -> Unit)? = null
 ) {
+    val (icon, color) = getFileIconAndColor(item)
+    val isSecure = (item is DriveItem.Folder && item.isSecure) || (item is DriveItem.File && item.isEncrypted)
+
     ListItem(
-        headlineContent = { Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        headlineContent = { 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (isSecure) {
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Default.Lock, null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.outline)
+                }
+            }
+        },
         supportingContent = {
             if (item is DriveItem.File) {
                 Text(formatSize(item.size), style = MaterialTheme.typography.bodySmall)
@@ -1244,6 +1332,17 @@ fun DriveListItem(
                         leadingIcon = { Icon(Icons.Default.Info, null) }
                     )
 
+                    onRenameClick?.let {
+                        DropdownMenuItem(
+                            text = { Text("Ubah Nama") },
+                            onClick = {
+                                it()
+                                showItemMenu = false
+                            },
+                            leadingIcon = { Icon(Icons.Default.Edit, null) }
+                        )
+                    }
+
                     if (item is DriveItem.File) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.download)) },
@@ -1313,11 +1412,14 @@ fun DriveGridItem(
     onStarClick: () -> Unit,
     onShareClick: () -> Unit,
     onDownloadClick: () -> Unit,
+    onRenameClick: (() -> Unit)? = null,
     onMoveClick: (() -> Unit)? = null,
     onDeleteClick: (() -> Unit)? = null
 ) {
     var showItemMenu by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    val (icon, color) = getFileIconAndColor(item)
+    val isSecure = (item is DriveItem.Folder && item.isSecure) || (item is DriveItem.File && item.isEncrypted)
 
     OutlinedCard(
         modifier = Modifier
@@ -1379,6 +1481,9 @@ fun DriveGridItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+                    if (isSecure) {
+                        Icon(Icons.Default.Lock, null, modifier = Modifier.size(12.dp).padding(horizontal = 2.dp), tint = MaterialTheme.colorScheme.outline)
+                    }
                     Box {
                         IconButton(onClick = { showItemMenu = true }, modifier = Modifier.size(24.dp)) {
                             Icon(
@@ -1409,6 +1514,13 @@ fun DriveGridItem(
                                 onClick = { showInfoDialog = true; showItemMenu = false },
                                 leadingIcon = { Icon(Icons.Default.Info, null) }
                             )
+                            onRenameClick?.let {
+                                DropdownMenuItem(
+                                    text = { Text("Ubah Nama") },
+                                    onClick = { it(); showItemMenu = false },
+                                    leadingIcon = { Icon(Icons.Default.Edit, null) }
+                                )
+                            }
                             if (item is DriveItem.File) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.download)) },
@@ -1633,15 +1745,16 @@ fun ShareDialog(
 
 @Composable
 private fun getFileIconAndColor(item: DriveItem): Pair<ImageVector, Color> {
-    return if (item is DriveItem.Folder) {
-        if (item.isVirtual) {
-            Icons.Default.Folder to MaterialTheme.colorScheme.tertiary
-        } else {
-            Icons.Default.Folder to MaterialTheme.colorScheme.primary
+    if (item is DriveItem.Folder) {
+        return when {
+            item.isSecure -> Icons.Default.Folder to Color(0xFF9C27B0) // Purple for secure
+            item.isVirtual -> Icons.Default.Folder to MaterialTheme.colorScheme.tertiary
+            else -> Icons.Default.Folder to MaterialTheme.colorScheme.primary
         }
     } else {
         val file = item as DriveItem.File
-        when {
+        return when {
+            file.isEncrypted -> Icons.Default.InsertDriveFile to Color(0xFF9C27B0)
             file.mimeType.startsWith("image/") -> Icons.Default.Image to Color(0xFF4CAF50)
             file.mimeType.startsWith("video/") -> Icons.Default.VideoFile to Color(0xFFE91E63)
             file.mimeType.startsWith("audio/") -> Icons.Default.AudioFile to Color(0xFFFF9800)

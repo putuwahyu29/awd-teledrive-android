@@ -213,6 +213,7 @@
     <string name="version_history">Riwayat Versi</string>
     <string name="version_history_desc">Lihat perubahan pada versi terbaru</string>
     <string name="whats_new">Apa yang Baru</string>
+    <string name="changelog_v130"><b>Versi 1.3.0</b>\n• Sistem Folder Aman dengan enkripsi lokal AES-256\n• Perlindungan Biometrik dan Kata Sandi Utama\n• Tampilan Penyimpanan Aman khusus layar penuh\n• Penghapusan folder rekursif (bersihkan isi secara bersih)\n• Sistem folder virtual untuk organisasi file\n• Berbagi file dan folder dengan pengguna lain</string>
     <string name="changelog_v120"><b>Versi 1.2.0</b>\n• Dukungan file di atas 2GB (Auto-Split)\n• Manajer transfer persisten (lanjut setelah restart)\n• Peningkatan deteksi folder di direktori utama\n• Menambahkan Riwayat Versi di pengaturan</string>
     <string name="changelog_v110"><b>Versi 1.1.0</b>\n• Alat Analisis Penyimpanan Awan\n• Manajemen Cache Lokal tingkat lanjut\n• Dukungan untuk channel Telegram yang diarsip\n• Optimasi perenderan PDF dan stabilitas</string>
     <string name="changelog_v100"><b>Versi 1.0.0</b>\n• Rilis awal TeleDrive Android\n• Manajemen file profesional (Unggah, Unduh, dll.)\n• Pencadangan latar belakang otomatis untuk folder media</string>
@@ -240,4 +241,10 @@
     <string name="backup_metadata_cloud_desc">Simpan revisi manual folder Anda ke Telegram</string>
     <string name="virtual_folder">Folder Virtual</string>
     <string name="channel_folder">Folder Channel</string>
+    <string name="secure_folder_label">Folder Aman (Terenkripsi)</string>
+    <string name="secure_folder_desc">Grup Private terenkripsi. Membutuhkan Master Password.</string>
+    <string name="unlock_secure_title">Buka Folder Aman</string>
+    <string name="unlock_secure_desc">Masukkan Master Password untuk melihat folder tersembunyi.</string>
+    <string name="secure_mode_disabled">Mode Aman Dinonaktifkan</string>
+    <string name="set_password_first">Setel Master Password di Pengaturan terlebih dahulu</string>
 </resources>

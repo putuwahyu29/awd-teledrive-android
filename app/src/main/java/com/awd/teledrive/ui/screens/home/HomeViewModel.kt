@@ -6,6 +6,8 @@ import com.awd.teledrive.core.ConnectivityObserver
 import com.awd.teledrive.data.repository.DriveRepository
 import com.awd.teledrive.data.repository.ShareRepository
 import com.awd.teledrive.domain.model.DriveItem
+import com.awd.teledrive.data.secure.MasterPasswordService
+import com.awd.teledrive.data.secure.SecureSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -33,6 +35,8 @@ class HomeViewModel @Inject constructor(
     private val driveRepository: DriveRepository,
     private val shareRepository: ShareRepository,
     private val connectivityObserver: ConnectivityObserver,
+    private val masterPasswordService: MasterPasswordService,
+    private val secureSessionManager: SecureSessionManager
 ) : ViewModel() {
 
     val connectivityStatus = connectivityObserver.status
@@ -78,7 +82,13 @@ class HomeViewModel @Inject constructor(
         val order = arr[3] as SortOrder
         val filter = arr[4] as FilterType
 
-        driveRepository.getItems(folderId, virtualId, query).map { items ->
+        driveRepository.getItems(folderId, virtualId, query).map { allItems ->
+            // Always hide secure items from the main drive view
+            val items = allItems.filter { item ->
+                !(item is DriveItem.Folder && item.isSecure) && 
+                !(item is DriveItem.File && item.isEncrypted)
+            }
+
             val filteredByType = when (filter) {
                 FilterType.ALL -> items
                 FilterType.PHOTOS -> items.filter { it is DriveItem.File && it.mimeType.startsWith("image/") }
@@ -145,9 +155,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun createFolder(name: String, isVirtual: Boolean = true) {
+    fun createFolder(name: String, isVirtual: Boolean = true, isSecure: Boolean = false) {
         viewModelScope.launch {
-            if (isVirtual) {
+            if (isSecure) {
+                driveRepository.createSecureFolder(name)
+            } else if (isVirtual) {
                 val parentId = if (_currentVirtualFolderId.value != "0") {
                     _currentVirtualFolderId.value
                 } else if (_currentFolderId.value != null) {
@@ -155,12 +167,21 @@ class HomeViewModel @Inject constructor(
                 } else {
                     "0"
                 }
-                driveRepository.createVirtualFolder(name, parentId)
+
+                val isParentSecure = if (parentId.startsWith("vf_")) {
+                    driveRepository.isVirtualFolderSecure(parentId)
+                } else {
+                    driveRepository.isChatSecure(parentId.toLongOrNull() ?: 0L)
+                }
+
+                driveRepository.createVirtualFolder(name, parentId, isSecure = isParentSecure)
             } else {
                 driveRepository.createFolder(name)
             }
         }
     }
+
+    fun isPasswordSet() = masterPasswordService.isPasswordSet()
 
     fun fetchItems() {
         viewModelScope.launch {
@@ -228,6 +249,12 @@ class HomeViewModel @Inject constructor(
     fun toggleStarred(item: DriveItem) {
         viewModelScope.launch {
             driveRepository.toggleStarred(item)
+        }
+    }
+
+    fun renameItem(item: DriveItem, newName: String) {
+        viewModelScope.launch {
+            driveRepository.renameItem(item, newName)
         }
     }
 

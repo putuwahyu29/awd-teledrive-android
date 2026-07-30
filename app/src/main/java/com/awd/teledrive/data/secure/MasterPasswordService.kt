@@ -23,6 +23,7 @@ class MasterPasswordService @Inject constructor(
     
     private val saltKey = "master_password_salt"
     private val hashKey = "master_password_hash"
+    private val rawKey = "master_password_raw"
 
     fun isPasswordSet(): Boolean {
         return secureSettings.getString(hashKey) != null
@@ -33,6 +34,11 @@ class MasterPasswordService @Inject constructor(
         val hash = hashPassword(password, salt) ?: return
         secureSettings.saveString(saltKey, bytesToHex(salt))
         secureSettings.saveString(hashKey, hash)
+        secureSettings.saveString(rawKey, password)
+    }
+
+    fun getStoredPassword(): String? {
+        return secureSettings.getString(rawKey)
     }
 
     fun verifyPassword(password: String): Boolean {

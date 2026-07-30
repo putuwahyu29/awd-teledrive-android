@@ -213,6 +213,7 @@
     <string name="version_history">Version History</string>
     <string name="version_history_desc">View changes in recent versions</string>
     <string name="whats_new">What\'s New</string>
+    <string name="changelog_v130"><b>Version 1.3.0</b>\n• Secure Folder system with AES-256 local encryption\n• Biometric and Master Password protection\n• Dedicated full-screen Secure Storage view\n• Recursive folder deletion (cleans children recursively)\n• Virtual folder system for organization\n• File and folder sharing with users</string>
     <string name="changelog_v120"><b>Version 1.2.0</b>\n• Support for files over 2GB (Auto-Split)\n• Persistent transfer manager (resumes after restart)\n• Improved folder discovery in root directory\n• Added Version History in settings</string>
     <string name="changelog_v110"><b>Version 1.1.0</b>\n• Cloud Storage Analysis tool\n• Advanced Local Cache management\n• Support for archived Telegram channels\n• Optimized PDF rendering and stability</string>
     <string name="changelog_v100"><b>Version 1.0.0</b>\n• Initial release of TeleDrive Android\n• Professional file management (Upload, Download, etc.)\n• Automatic background backup for media folders</string>
@@ -242,4 +243,10 @@
     <string name="backup_metadata_cloud_desc">Save a manual revision of your folders to Telegram</string>
     <string name="virtual_folder">Virtual Folder</string>
     <string name="channel_folder">Channel Folder</string>
+    <string name="secure_folder_label">Secure Folder (Encrypted)</string>
+    <string name="secure_folder_desc">Encrypted Private Group. Requires Master Password.</string>
+    <string name="unlock_secure_title">Unlock Secure Folders</string>
+    <string name="unlock_secure_desc">Enter Master Password to reveal hidden folders.</string>
+    <string name="secure_mode_disabled">Secure Mode Disabled</string>
+    <string name="set_password_first">Please set a Master Password in Settings first</string>
 </resources>
