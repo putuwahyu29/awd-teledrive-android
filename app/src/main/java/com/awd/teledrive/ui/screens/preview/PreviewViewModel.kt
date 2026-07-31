@@ -38,6 +38,37 @@ class PreviewViewModel @Inject constructor(
 
     private val _decryptedPaths = MutableStateFlow<Map<Long, String>>(emptyMap())
     val decryptedPaths = _decryptedPaths.asStateFlow()
+
+    private val _isDecrypting = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
+    val isDecrypting = _isDecrypting.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            transfers.collect { transferMap ->
+                items.value.forEach { file ->
+                    if (file.isEncrypted && file.localPath == null) {
+                        val transfer = transferMap[file.remoteUniqueId] ?: transferMap["temp_${file.telegramFileId}"]
+                        if (transfer != null && transfer.status == "Selesai") {
+                            // Download finished for encrypted file, but repo doesn't auto-decrypt for preview 
+                            // because it doesn't know context. Trigger here.
+                            // We need to wait for localPath to be updated in the file item though.
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Better: Observe the items flow. When an encrypted file's localPath becomes non-null, decrypt it.
+        viewModelScope.launch {
+            items.collect { fileList ->
+                fileList.forEach { file ->
+                    if (file.isEncrypted && file.localPath != null && !_decryptedPaths.value.containsKey(file.id)) {
+                        decryptForPreview(file)
+                    }
+                }
+            }
+        }
+    }
     
     val items: StateFlow<List<DriveItem.File>> = (if (isMediaOnly) {
         driveRepository.getAllFiles().map { list ->
@@ -87,8 +118,10 @@ class PreviewViewModel @Inject constructor(
     private fun decryptForPreview(file: DriveItem.File) {
         val password = secureSessionManager.decryptedPassword.value ?: return
         val localPath = file.localPath ?: return
-        
+        if (_isDecrypting.value[file.id] == true) return
+
         viewModelScope.launch {
+            _isDecrypting.value = _isDecrypting.value + (file.id to true)
             withContext(Dispatchers.IO) {
                 try {
                     val encryptedFile = File(localPath)
@@ -97,6 +130,8 @@ class PreviewViewModel @Inject constructor(
                     _decryptedPaths.value = _decryptedPaths.value + (file.id to decryptedFile.absolutePath)
                 } catch (e: Exception) {
                     e.printStackTrace()
+                } finally {
+                    _isDecrypting.value = _isDecrypting.value - file.id
                 }
             }
         }

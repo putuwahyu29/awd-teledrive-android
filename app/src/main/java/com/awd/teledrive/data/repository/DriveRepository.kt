@@ -573,9 +573,10 @@ class DriveRepository @Inject constructor(
                                 telegramClient.send(TdApi.DownloadFile(thumb.file.id, 1, 0, 0, false))
                             }
                             val docFile = content.document.document
+                            val rawName = splitInfo?.originalName ?: content.document.fileName
                             DriveItemEntity(
                                 id = message.id,
-                                name = splitInfo?.originalName ?: content.document.fileName,
+                                name = if (isEncrypted) cleanEncryptedFileName(rawName) else rawName,
                                 size = docFile.expectedSize,
                                 mimeType = content.document.mimeType,
                                 telegramFileId = docFile.id,
@@ -646,9 +647,10 @@ class DriveRepository @Inject constructor(
                                 telegramClient.send(TdApi.DownloadFile(thumb.file.id, 1, 0, 0, false))
                             }
                             val videoFile = content.video.video
+                            val rawName = splitInfo?.originalName ?: content.video.fileName
                             DriveItemEntity(
                                 id = message.id,
-                                name = splitInfo?.originalName ?: content.video.fileName,
+                                name = if (isEncrypted) cleanEncryptedFileName(rawName) else rawName,
                                 size = videoFile.expectedSize,
                                 mimeType = content.video.mimeType,
                                 telegramFileId = videoFile.id,
@@ -677,9 +679,10 @@ class DriveRepository @Inject constructor(
                                 ?: currentManifest.fileMappings[message.id.toString()] 
                                 ?: "0"
                             val audioFile = content.audio.audio
+                            val rawName = splitInfo?.originalName ?: content.audio.fileName.ifEmpty { "Audio_${message.id}.mp3" }
                             DriveItemEntity(
                                 id = message.id,
-                                name = splitInfo?.originalName ?: content.audio.fileName.ifEmpty { "Audio_${message.id}.mp3" },
+                                name = if (isEncrypted) cleanEncryptedFileName(rawName) else rawName,
                                 size = audioFile.expectedSize,
                                 mimeType = content.audio.mimeType,
                                 telegramFileId = audioFile.id,
@@ -1515,5 +1518,9 @@ class DriveRepository @Inject constructor(
         val endIndex = caption.indexOf(endTag, startIndex)
         if (endIndex == -1) return null
         return caption.substring(startIndex + startTag.length, endIndex)
+    }
+
+    private fun cleanEncryptedFileName(fileName: String): String {
+        return fileName.replace(Regex("^enc_\\d+_"), "").replace(Regex("^enc_"), "")
     }
 }

@@ -1747,14 +1747,13 @@ fun ShareDialog(
 private fun getFileIconAndColor(item: DriveItem): Pair<ImageVector, Color> {
     if (item is DriveItem.Folder) {
         return when {
-            item.isSecure -> Icons.Default.Folder to Color(0xFF9C27B0) // Purple for secure
+            item.isSecure -> Icons.Default.Folder to Color(0xFF2196F3) // Blue for secure
             item.isVirtual -> Icons.Default.Folder to MaterialTheme.colorScheme.tertiary
             else -> Icons.Default.Folder to MaterialTheme.colorScheme.primary
         }
     } else {
         val file = item as DriveItem.File
         return when {
-            file.isEncrypted -> Icons.Default.InsertDriveFile to Color(0xFF9C27B0)
             file.mimeType.startsWith("image/") -> Icons.Default.Image to Color(0xFF4CAF50)
             file.mimeType.startsWith("video/") -> Icons.Default.VideoFile to Color(0xFFE91E63)
             file.mimeType.startsWith("audio/") -> Icons.Default.AudioFile to Color(0xFFFF9800)

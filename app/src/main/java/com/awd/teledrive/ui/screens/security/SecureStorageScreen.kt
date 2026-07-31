@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,13 +21,17 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,10 +40,12 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -61,6 +68,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.awd.teledrive.R
 import com.awd.teledrive.domain.model.DriveItem
 import com.awd.teledrive.ui.screens.home.DriveListItem
+import com.awd.teledrive.ui.screens.home.FilterSortRow
 import com.awd.teledrive.ui.screens.home.NewActionItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -80,6 +88,10 @@ fun SecureStorageScreen(
     val currentFolderName by viewModel.currentFolderName.collectAsState()
     val currentFolderId by viewModel.currentFolderId.collectAsState()
     val currentVirtualFolderId by viewModel.currentVirtualFolderId.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
+    val filterType by viewModel.filterType.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -91,6 +103,7 @@ fun SecureStorageScreen(
     var itemToRename by remember { mutableStateOf<DriveItem?>(null) }
     var renameValue by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf<List<DriveItem>?>(null) }
+    var isSearchActive by remember { mutableStateOf(false) }
 
     val multiFilePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
@@ -201,7 +214,7 @@ fun SecureStorageScreen(
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp, start = 16.dp, end = 16.dp)) {
                 Text(stringResource(R.string.create_new), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                    val isAtRoot = currentVirtualFolderId == "0"
+                    val isAtRoot = currentVirtualFolderId == "0" && currentFolderId == null
                     
                     if (isAtRoot) {
                         NewActionItem(Icons.Default.CreateNewFolder, stringResource(R.string.folder)) {
@@ -213,10 +226,9 @@ fun SecureStorageScreen(
                             showNewSheet = false
                             multiFilePickerLauncher.launch("*/*")
                         }
-                        // Add Camera action if needed
                         NewActionItem(Icons.Default.CameraAlt, stringResource(R.string.camera)) {
                             showNewSheet = false
-                            // Camera trigger could be implemented similar to HomeScreen
+                            // Camera launch logic
                         }
                     }
                 }
@@ -229,7 +241,10 @@ fun SecureStorageScreen(
     }
 
     BackHandler {
-        if (currentFolderId != null || currentVirtualFolderId != "0") {
+        if (isSearchActive) {
+            isSearchActive = false
+            viewModel.onSearchQueryChange("")
+        } else if (currentFolderId != null || currentVirtualFolderId != "0") {
             viewModel.navigateBack()
         } else {
             onBack()
@@ -238,26 +253,67 @@ fun SecureStorageScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(currentFolderName ?: stringResource(R.string.secure_folder_label)) },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (currentFolderId != null || currentVirtualFolderId != "0") {
-                            viewModel.navigateBack()
+            Column {
+                TopAppBar(
+                    title = {
+                        if (!isSearchActive) {
+                            Text(currentFolderName ?: stringResource(R.string.secure_folder_label))
                         } else {
-                            onBack()
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { viewModel.onSearchQueryChange(it) },
+                                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                if (searchQuery.isEmpty()) {
+                                    Text(stringResource(R.string.search_teledrive), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                         }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.fetchItems() }) {
-                        Icon(Icons.Default.Refresh, null)
-                    }
-                },
-                modifier = Modifier.statusBarsPadding()
-            )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            if (isSearchActive) {
+                                isSearchActive = false
+                                viewModel.onSearchQueryChange("")
+                            } else if (currentFolderId != null || currentVirtualFolderId != "0") {
+                                viewModel.navigateBack()
+                            } else {
+                                onBack()
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
+                        }
+                    },
+                    actions = {
+                        if (!isSearchActive) {
+                            IconButton(onClick = { isSearchActive = true }) {
+                                Icon(Icons.Default.Search, null)
+                            }
+                            IconButton(onClick = { viewModel.fetchItems() }) {
+                                Icon(Icons.Default.Refresh, null)
+                            }
+                        } else {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                                    Icon(Icons.Default.Close, null)
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.statusBarsPadding()
+                )
+                if (!isSearchActive) {
+                    FilterSortRow(
+                        filterType = filterType,
+                        sortOrder = sortOrder,
+                        onSetFilterType = { viewModel.setFilterType(it) },
+                        onSetSortOrder = { viewModel.setSortOrder(it) },
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                    )
+                }
+            }
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -271,7 +327,7 @@ fun SecureStorageScreen(
         }
     ) { padding ->
         PullToRefreshBox(
-            isRefreshing = false, // TODO: Observe from ViewModel
+            isRefreshing = isRefreshing,
             onRefresh = { viewModel.fetchItems() },
             modifier = Modifier.padding(padding).fillMaxSize()
         ) {
@@ -305,6 +361,7 @@ fun SecureStorageScreen(
                             onDownloadClick = {
                                 if (item is DriveItem.File) {
                                     viewModel.downloadFile(item.id, item.parentChatId, item.name)
+                                    Toast.makeText(context, "Mulai mengunduh: ${item.name}", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onRenameClick = {

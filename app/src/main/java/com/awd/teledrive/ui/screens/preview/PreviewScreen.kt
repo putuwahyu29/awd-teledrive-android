@@ -23,8 +23,11 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
@@ -102,6 +105,7 @@ fun PreviewScreen(
     val folders by viewModel.folders.collectAsState()
     val transfers by viewModel.transfers.collectAsState()
     val decryptedPaths by viewModel.decryptedPaths.collectAsState()
+    val isDecrypting by viewModel.isDecrypting.collectAsState()
     
     if (items.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -116,6 +120,7 @@ fun PreviewScreen(
             folders = folders,
             transfers = transfers,
             decryptedPaths = decryptedPaths,
+            isDecrypting = isDecrypting,
             pagerState = pagerState,
             onBack = onBack,
             onOpenPlayer = onOpenPlayer,
@@ -141,6 +146,7 @@ fun PreviewPager(
     folders: List<DriveItem.Folder>,
     transfers: Map<String, TransferInfo>,
     decryptedPaths: Map<Long, String>,
+    isDecrypting: Map<Long, Boolean>,
     pagerState: PagerState,
     onBack: () -> Unit,
     onOpenPlayer: (String) -> Unit,
@@ -325,7 +331,8 @@ fun PreviewPager(
             val file = items[pageIndex]
             val transfer = transfers[file.remoteUniqueId] ?: transfers.values.find { it.fileId == file.telegramFileId }
             val displayPath = decryptedPaths[file.id] ?: file.localPath
-            
+            val decrypting = isDecrypting[file.id] ?: false
+
             if (file.isSplit) {
                 SplitFilePreviewPlaceholder(file)
             } else {
@@ -333,6 +340,7 @@ fun PreviewPager(
                     file = file,
                     displayPath = displayPath,
                     transfer = transfer,
+                    isDecrypting = decrypting,
                     onOpenPlayer = onOpenPlayer,
                     onOpenPdf = onOpenPdf,
                     onOpenText = onOpenText,
@@ -367,6 +375,7 @@ fun PreviewContent(
     file: DriveItem.File,
     displayPath: String?,
     transfer: TransferInfo?,
+    isDecrypting: Boolean,
     onOpenPlayer: (String) -> Unit,
     onOpenPdf: (String) -> Unit,
     onOpenText: (String) -> Unit,
@@ -376,6 +385,7 @@ fun PreviewContent(
     val context = LocalContext.current
     val isImage = file.mimeType.startsWith("image/")
     val isTransferring = transfer != null && (transfer.status == "Mengunduh" || transfer.status == "Mengunggah")
+    val isLoading = isTransferring || isDecrypting
     
     var scale by remember(file.id, isZoomEnabled) { mutableStateOf(1f) }
     var offset by remember(file.id, isZoomEnabled) { mutableStateOf(Offset.Zero) }
@@ -441,12 +451,14 @@ fun PreviewContent(
                     )
                 }
                 
-                if (displayPath == null && isTransferring) {
+                if (displayPath == null && isLoading) {
                     CircularProgressIndicator(
-                        progress = { transfer?.progress ?: 0f },
+                        progress = { 
+                            if (isDecrypting) 1f else (transfer?.progress ?: 0f)
+                        },
                         modifier = Modifier.size(if (isImage) 100.dp else 160.dp),
                         strokeWidth = 4.dp,
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (isDecrypting) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -460,9 +472,9 @@ fun PreviewContent(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
                 
-                if (displayPath == null && isTransferring) {
+                if (displayPath == null && isLoading) {
                     Text(
-                        text = "${(transfer?.progress?.times(100))?.toInt()}% Memuat...",
+                        text = if (isDecrypting) "Mendekripsi..." else "${(transfer?.progress?.times(100))?.toInt()}% Memuat...",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -540,10 +552,10 @@ fun PreviewContent(
                     }
                 }
             } else if (displayPath == null) {
-                if (isTransferring) {
+                if (isLoading) {
                     // Show floating progress for image
                     Text(
-                        text = "${(transfer?.progress?.times(100))?.toInt()}%",
+                        text = if (isDecrypting) "Dekripsi..." else "${(transfer?.progress?.times(100))?.toInt()}%",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 16.dp)
@@ -562,7 +574,7 @@ fun PreviewContent(
             }
         }
 
-        if (file.isEncrypted && displayPath == null && !isTransferring) {
+        if (file.isEncrypted && displayPath == null && !isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center
@@ -620,13 +632,16 @@ private fun formatSize(size: Long): String {
     return String.format(java.util.Locale.getDefault(), "%.1f %s", size / 1024.0.pow(digitGroups.toDouble()), units[digitGroups])
 }
 
+@Composable
 private fun getFileIconAndColor(file: DriveItem.File): Pair<ImageVector, Color> {
     return when {
         file.mimeType.startsWith("image/") -> Icons.Default.Image to Color(0xFF4CAF50)
-        file.mimeType.startsWith("video/") -> Icons.Default.VideoFile to Color(0xFFFF5722)
-        file.mimeType.startsWith("audio/") -> Icons.Default.AudioFile to Color(0xFFFFC107)
+        file.mimeType.startsWith("video/") -> Icons.Default.VideoFile to Color(0xFFE91E63)
+        file.mimeType.startsWith("audio/") -> Icons.Default.AudioFile to Color(0xFFFF9800)
         file.mimeType == "application/pdf" -> Icons.Default.PictureAsPdf to Color(0xFFF44336)
-        file.mimeType.contains("zip") || file.mimeType.contains("rar") -> Icons.Default.FolderZip to Color(0xFF9C27B0)
-        else -> Icons.AutoMirrored.Filled.InsertDriveFile to Color(0xFF2196F3)
+        file.mimeType.contains("zip") || file.mimeType.contains("rar") || file.mimeType.contains("7z") -> Icons.Default.FolderZip to Color(0xFF9C27B0)
+        file.mimeType.contains("text/") -> Icons.AutoMirrored.Filled.Article to Color(0xFF607D8B)
+        file.mimeType.contains("android.package-archive") -> Icons.Default.Android to Color(0xFF3DDC84)
+        else -> Icons.AutoMirrored.Filled.InsertDriveFile to MaterialTheme.colorScheme.onSurfaceVariant
     }
 }
