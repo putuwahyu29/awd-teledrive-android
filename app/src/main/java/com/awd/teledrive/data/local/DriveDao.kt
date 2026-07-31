@@ -60,6 +60,23 @@ interface DriveDao {
         insertItems(updatedItems)
     }
 
+    @Transaction
+    suspend fun insertItemsPreservingStarred(items: List<DriveItemEntity>) {
+        val ids = items.map { it.id }
+        // Note: This only works if parentChatId is also considered or if IDs are unique enough.
+        // The table has primaryKeys = ["id", "parentChatId"]
+        
+        val updatedItems = items.map { item ->
+            val existing = getItemById(item.id, item.parentChatId)
+            if (existing?.isStarred == true) {
+                item.copy(isStarred = true)
+            } else {
+                item
+            }
+        }
+        insertItems(updatedItems)
+    }
+
     @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId")
     suspend fun getItemsSync(chatId: Long): List<DriveItemEntity>
 
@@ -89,6 +106,9 @@ interface DriveDao {
 
     @Query("DELETE FROM drive_items WHERE id = :id AND parentChatId = :chatId")
     suspend fun deleteItemCompletely(id: Long, chatId: Long)
+
+    @Query("DELETE FROM drive_items WHERE parentChatId = :chatId AND id NOT IN (:ids) AND isFolder = 0 AND isVirtual = 0")
+    suspend fun deleteFilesByChatNotInList(chatId: Long, ids: List<Long>)
 
     @Query("DELETE FROM drive_items WHERE id < 0")
     suspend fun deletePendingItems()

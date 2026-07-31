@@ -36,40 +36,6 @@ class PreviewViewModel @Inject constructor(
     private val initialFileId: Long = savedStateHandle.get<Long>("fileId") ?: 0L
     private val isMediaOnly: Boolean = savedStateHandle.get<Boolean>("isMediaOnly") ?: false
 
-    private val _decryptedPaths = MutableStateFlow<Map<Long, String>>(emptyMap())
-    val decryptedPaths = _decryptedPaths.asStateFlow()
-
-    private val _isDecrypting = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
-    val isDecrypting = _isDecrypting.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            transfers.collect { transferMap ->
-                items.value.forEach { file ->
-                    if (file.isEncrypted && file.localPath == null) {
-                        val transfer = transferMap[file.remoteUniqueId] ?: transferMap["temp_${file.telegramFileId}"]
-                        if (transfer != null && transfer.status == "Selesai") {
-                            // Download finished for encrypted file, but repo doesn't auto-decrypt for preview 
-                            // because it doesn't know context. Trigger here.
-                            // We need to wait for localPath to be updated in the file item though.
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Better: Observe the items flow. When an encrypted file's localPath becomes non-null, decrypt it.
-        viewModelScope.launch {
-            items.collect { fileList ->
-                fileList.forEach { file ->
-                    if (file.isEncrypted && file.localPath != null && !_decryptedPaths.value.containsKey(file.id)) {
-                        decryptForPreview(file)
-                    }
-                }
-            }
-        }
-    }
-    
     val items: StateFlow<List<DriveItem.File>> = (if (isMediaOnly) {
         driveRepository.getAllFiles().map { list ->
             list.filter { it.mimeType.startsWith("image/") || it.mimeType.startsWith("video/") }
@@ -85,6 +51,25 @@ class PreviewViewModel @Inject constructor(
 
     // Tracks download progress of the files in the list
     val transfers = transferRepository.transfers
+
+    private val _decryptedPaths = MutableStateFlow<Map<Long, String>>(emptyMap())
+    val decryptedPaths = _decryptedPaths.asStateFlow()
+
+    private val _isDecrypting = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
+    val isDecrypting = _isDecrypting.asStateFlow()
+
+    init {
+        // Observe the items flow. When an encrypted file's localPath becomes non-null, decrypt it.
+        viewModelScope.launch {
+            items.collect { fileList ->
+                fileList.forEach { file ->
+                    if (file.isEncrypted && file.localPath != null && !_decryptedPaths.value.containsKey(file.id)) {
+                        decryptForPreview(file)
+                    }
+                }
+            }
+        }
+    }
 
     fun getInitialIndex(): Int {
         val index = items.value.indexOfFirst { it.id == initialFileId }

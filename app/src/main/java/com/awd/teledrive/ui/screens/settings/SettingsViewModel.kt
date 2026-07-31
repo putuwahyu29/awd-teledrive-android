@@ -143,6 +143,8 @@ class SettingsViewModel @Inject constructor(
 
     fun clearCache() {
         settingsRepository.clearCacheAggrersively {
+            driveRepository.clearDatabaseLocalPaths()
+            _showCacheWarning.value = false
             // After clearing, we might want to refresh UI or drive info
             driveRepository.fetchFiles()
         }

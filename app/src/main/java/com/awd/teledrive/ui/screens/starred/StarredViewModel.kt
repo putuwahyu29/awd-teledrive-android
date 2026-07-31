@@ -30,7 +30,7 @@ class StarredViewModel @Inject constructor(
     val starredItems: StateFlow<List<DriveItem>> = combine(
         driveRepository.getStarredItems(),
         isSecureModeActive
-    ) { items, secureActive ->
+    ) { items: List<DriveItem>, secureActive: Boolean ->
         items.filter { item ->
             when (item) {
                 is DriveItem.File -> secureActive || !item.isEncrypted

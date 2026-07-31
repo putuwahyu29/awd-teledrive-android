@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -305,23 +304,6 @@ fun SettingsContent(
             context.contentResolver.takePersistableUriPermission(it, takeFlags)
             onSetDownloadUri(it.toString())
         }
-    }
-
-    if (showCacheWarning) {
-        AlertDialog(
-            onDismissRequest = onDismissCacheWarning,
-            title = { Text(stringResource(R.string.clear_cache_confirm_title)) },
-            text = { Text("Penyimpanan lokal Anda telah melewati batas yang ditentukan. Apakah Anda ingin membersihkan cache sekarang?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onClearCache()
-                    onDismissCacheWarning()
-                }) { Text("Bersihkan Sekarang", color = MaterialTheme.colorScheme.primary) }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismissCacheWarning) { Text(stringResource(R.string.later)) }
-            }
-        )
     }
 
     if (showLanguageRestartConfirm) {

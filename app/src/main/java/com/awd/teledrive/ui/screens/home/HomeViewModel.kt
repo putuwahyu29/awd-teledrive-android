@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.awd.teledrive.core.ConnectivityObserver
 import com.awd.teledrive.data.repository.DriveRepository
 import com.awd.teledrive.data.repository.ShareRepository
-import com.awd.teledrive.domain.model.DriveItem
 import com.awd.teledrive.data.secure.MasterPasswordService
 import com.awd.teledrive.data.secure.SecureSessionManager
+import com.awd.teledrive.domain.model.DriveItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -68,6 +68,9 @@ class HomeViewModel @Inject constructor(
 
     private val _isInitialLoading = MutableStateFlow(true)
     val isInitialLoading = _isInitialLoading.asStateFlow()
+
+    private val _isSyncingMetadata = MutableStateFlow(false)
+    val isSyncingMetadata = _isSyncingMetadata.asStateFlow()
 
     val totalStorageUsed: StateFlow<Long> = driveRepository.getTotalStorageUsed()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
@@ -187,19 +190,29 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             if (items.value.isEmpty()) _isInitialLoading.value = true
             else _isRefreshing.value = true
+            _isSyncingMetadata.value = true
             
             driveRepository.fetchFiles(_currentFolderId.value)
             
-            // Give a small delay for DB to sync and UI to feel smooth
-            kotlinx.coroutines.delay(1000)
+            if (_currentFolderId.value == null) {
+                // Wait for sync to complete or at least identity resolved
+                kotlinx.coroutines.withTimeoutOrNull(5000) {
+                    driveRepository.getSavedMessagesChatIdFlow().collect { id ->
+                        if (id != 0L) {
+                            kotlinx.coroutines.delay(1000) // Extra time for DB
+                            _isSyncingMetadata.value = false
+                            _isInitialLoading.value = false
+                            _isRefreshing.value = false
+                            throw kotlinx.coroutines.CancellationException()
+                        }
+                    }
+                }
+            } else {
+                kotlinx.coroutines.delay(1000)
+            }
+            _isSyncingMetadata.value = false
             _isInitialLoading.value = false
             _isRefreshing.value = false
-            
-            // Second fetch to ensure everything is caught if TDLib was still processing
-            if (items.value.isEmpty()) {
-                kotlinx.coroutines.delay(2000)
-                driveRepository.fetchFiles(_currentFolderId.value)
-            }
         }
     }
 

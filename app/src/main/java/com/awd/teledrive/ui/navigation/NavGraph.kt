@@ -1,6 +1,5 @@
 package com.awd.teledrive.ui.navigation
 
-import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -17,6 +16,7 @@ import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
@@ -102,10 +102,15 @@ fun NavGraph(navController: NavHostController) {
     
     val securityViewModel: SecurityViewModel = hiltViewModel()
     val loginViewModel: com.awd.teledrive.ui.screens.auth.LoginViewModel = hiltViewModel()
+    val settingsViewModel: com.awd.teledrive.ui.screens.settings.SettingsViewModel = hiltViewModel()
     
     val isLocked by securityViewModel.isLocked.collectAsState()
     val loginUiState by loginViewModel.uiState.collectAsState()
     val isSecureActive by securityViewModel.isSecureModeActive.collectAsState(false)
+    val showCacheWarning by settingsViewModel.showCacheWarning.collectAsState()
+    
+    val savedMessagesId by hiltViewModel<com.awd.teledrive.ui.screens.home.HomeViewModel>().totalStorageUsed.collectAsState() // Just to trigger something? No.
+    // Let's just use a better way to check if ready.
 
     var showUnlockDialog by remember { mutableStateOf(false) }
 
@@ -226,8 +231,7 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
-    )
-{ innerPadding ->
+    ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = Screen.Login.route, // Default, will be redirected by LaunchedEffects if needed
@@ -390,6 +394,23 @@ fun NavGraph(navController: NavHostController) {
             },
             dismissButton = {
                 TextButton(onClick = { showUnlockDialog = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+
+    if (showCacheWarning) {
+        AlertDialog(
+            onDismissRequest = { settingsViewModel.dismissCacheWarning() },
+            title = { Text(stringResource(R.string.clear_cache_confirm_title)) },
+            text = { Text("Penyimpanan lokal Anda telah melewati batas yang ditentukan. Apakah Anda ingin membersihkan cache sekarang?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    settingsViewModel.clearCache()
+                    settingsViewModel.dismissCacheWarning()
+                }) { Text("Bersihkan Sekarang", color = MaterialTheme.colorScheme.primary) }
+            },
+            dismissButton = {
+                TextButton(onClick = { settingsViewModel.dismissCacheWarning() }) { Text(stringResource(R.string.later)) }
             }
         )
     }

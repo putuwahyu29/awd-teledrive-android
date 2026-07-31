@@ -26,7 +26,7 @@ class MediaViewModel @Inject constructor(
     val mediaItems: StateFlow<List<DriveItem.File>> = combine(
         driveRepository.getAllFiles(),
         isSecureModeActive
-    ) { items, secureActive ->
+    ) { items: List<DriveItem.File>, secureActive: Boolean ->
         items.filter {
             (it.mimeType.startsWith("image/") || it.mimeType.startsWith("video/")) &&
             (secureActive || !it.isEncrypted)

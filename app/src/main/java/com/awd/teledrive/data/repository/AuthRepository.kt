@@ -2,9 +2,9 @@ package com.awd.teledrive.data.repository
 
 import android.content.Context
 import com.awd.teledrive.core.Config
+import com.awd.teledrive.core.utils.VersionUtils
 import com.awd.teledrive.data.remote.TelegramClient
 import com.awd.teledrive.data.secure.SecureSettings
-import com.awd.teledrive.core.utils.VersionUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

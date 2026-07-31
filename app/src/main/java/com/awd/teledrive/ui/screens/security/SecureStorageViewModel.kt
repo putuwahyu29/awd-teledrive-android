@@ -49,13 +49,14 @@ class SecureStorageViewModel @Inject constructor(
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val secureItems: StateFlow<List<DriveItem>> = combine(
-        listOf(_currentFolderId, _currentVirtualFolderId, _searchQuery, _sortOrder, _filterType)
+        listOf(_currentFolderId, _currentVirtualFolderId, _searchQuery, _sortOrder, _filterType, driveRepository.getSavedMessagesChatIdFlow())
     ) { arr ->
         val folderId = arr[0] as? Long
         val virtualId = arr[1] as String
         val query = arr[2] as String
         val order = arr[3] as SortOrder
         val filter = arr[4] as FilterType
+        // savedMessagesChatId is arr[5], we don't need it directly but observing it triggers refresh when ready
 
         driveRepository.getItems(folderId, virtualId, query).map { allItems ->
             val isInsideSecure = if (virtualId != "0") {
@@ -120,7 +121,18 @@ class SecureStorageViewModel @Inject constructor(
     }
 
     fun fetchItems() {
-        driveRepository.fetchFiles(_currentFolderId.value)
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            driveRepository.fetchFiles(_currentFolderId.value)
+            
+            if (_currentFolderId.value == null) {
+                // Root secure storage, wait for discovery
+                kotlinx.coroutines.delay(2000)
+            } else {
+                kotlinx.coroutines.delay(1000)
+            }
+            _isRefreshing.value = false
+        }
     }
 
     fun navigateBack() {
