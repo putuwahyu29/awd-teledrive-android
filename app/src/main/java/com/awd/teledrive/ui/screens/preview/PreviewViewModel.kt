@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.awd.teledrive.R
 import com.awd.teledrive.data.repository.DriveRepository
 import com.awd.teledrive.data.repository.TransferRepository
 import com.awd.teledrive.data.secure.EncryptionManager
@@ -28,7 +29,7 @@ class PreviewViewModel @Inject constructor(
     private val driveRepository: DriveRepository,
     private val encryptionManager: EncryptionManager,
     private val secureSessionManager: SecureSessionManager,
-    transferRepository: TransferRepository,
+    private val transferRepository: TransferRepository,
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -58,12 +59,17 @@ class PreviewViewModel @Inject constructor(
     private val _isDecrypting = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
     val isDecrypting = _isDecrypting.asStateFlow()
 
+    private val _isOpening = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
+    val isOpening = _isOpening.asStateFlow()
+
     init {
-        // Observe the items flow. When an encrypted file's localPath becomes non-null, decrypt it.
+        // Observe both items and secure session state.
         viewModelScope.launch {
-            items.collect { fileList ->
-                fileList.forEach { file ->
-                    if (file.isEncrypted && file.localPath != null && !_decryptedPaths.value.containsKey(file.id)) {
+            kotlinx.coroutines.flow.combine(items, secureSessionManager.decryptedPassword) { itemList, password ->
+                itemList to password
+            }.collect { (itemList, password) ->
+                itemList.forEach { file ->
+                    if (file.isEncrypted && file.localPath != null && password != null && !_decryptedPaths.value.containsKey(file.id)) {
                         decryptForPreview(file)
                     }
                 }
@@ -107,16 +113,28 @@ class PreviewViewModel @Inject constructor(
 
         viewModelScope.launch {
             _isDecrypting.value = _isDecrypting.value + (file.id to true)
+            _isOpening.value = _isOpening.value + (file.id to true)
             withContext(Dispatchers.IO) {
                 try {
                     val encryptedFile = File(localPath)
                     val decryptedFile = File(context.cacheDir, "prev_dec_${file.id}_${file.name}")
-                    encryptionManager.decryptFile(encryptedFile, decryptedFile, password)
+                    encryptionManager.decryptFile(encryptedFile, decryptedFile, password) { progress ->
+                        // The UI can use transferRepository or we could expose another StateFlow.
+                        // For simplicity, let's update a manual status if needed.
+                        // But TransferRepository already tracks this fileId if it was enqueued.
+                        transferRepository.updateTransferManual(
+                            file.remoteUniqueId, 
+                            progress, 
+                            context.getString(R.string.decrypting_perc, (progress * 100).toInt()),
+                            throttled = true
+                        )
+                    }
                     _decryptedPaths.value = _decryptedPaths.value + (file.id to decryptedFile.absolutePath)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 } finally {
                     _isDecrypting.value = _isDecrypting.value - file.id
+                    _isOpening.value = _isOpening.value - file.id
                 }
             }
         }

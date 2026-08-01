@@ -41,5 +41,6 @@ data class TransferEntity(
     val status: String,
     val totalSize: Long,
     val downloadedSize: Long,
+    val localPath: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 )

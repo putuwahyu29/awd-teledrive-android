@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -82,6 +83,7 @@ fun SecureStorageScreen(
     val sortOrder by viewModel.sortOrder.collectAsState()
     val filterType by viewModel.filterType.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val isInitialLoading by viewModel.isInitialLoading.collectAsState()
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -127,12 +129,12 @@ fun SecureStorageScreen(
     if (itemToRename != null) {
         AlertDialog(
             onDismissRequest = { itemToRename = null },
-            title = { Text("Ubah Nama") },
+            title = { Text(stringResource(R.string.rename)) },
             text = {
                 OutlinedTextField(
                     value = renameValue,
                     onValueChange = { renameValue = it },
-                    label = { Text("Nama Baru") },
+                    label = { Text(stringResource(R.string.new_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -141,10 +143,10 @@ fun SecureStorageScreen(
                 Button(onClick = {
                     itemToRename?.let { viewModel.renameItem(it, renameValue) }
                     itemToRename = null
-                }) { Text("Simpan") }
+                }) { Text(stringResource(R.string.confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { itemToRename = null }) { Text("Batal") }
+                TextButton(onClick = { itemToRename = null }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -318,9 +320,13 @@ fun SecureStorageScreen(
             onRefresh = { viewModel.fetchItems() },
             modifier = Modifier.padding(padding).fillMaxSize()
         ) {
-            if (items.isEmpty()) {
+            if (isInitialLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Belum ada file di Folder Aman", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    CircularProgressIndicator()
+                }
+            } else if (items.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.no_files_secure), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 LazyColumn(
@@ -348,7 +354,7 @@ fun SecureStorageScreen(
                             onDownloadClick = {
                                 if (item is DriveItem.File) {
                                     viewModel.downloadFile(item.id, item.parentChatId, item.name)
-                                    Toast.makeText(context, "Mulai mengunduh: ${item.name}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.starting_download, item.name), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onRenameClick = {

@@ -163,12 +163,19 @@ class HomeViewModel @Inject constructor(
             if (isSecure) {
                 driveRepository.createSecureFolder(name)
             } else if (isVirtual) {
+                // Determine parentId based on current view
                 val parentId = if (_currentVirtualFolderId.value != "0") {
                     _currentVirtualFolderId.value
                 } else if (_currentFolderId.value != null) {
+                    // This case should be restricted by UI, but adding a safeguard
                     _currentFolderId.value.toString()
                 } else {
                     "0"
+                }
+
+                // Restriction: Cannot create virtual folders inside physical folders as per user requirement
+                if (_currentFolderId.value != null && _currentVirtualFolderId.value == "0") {
+                    return@launch
                 }
 
                 val isParentSecure = if (parentId.startsWith("vf_")) {
@@ -179,7 +186,10 @@ class HomeViewModel @Inject constructor(
 
                 driveRepository.createVirtualFolder(name, parentId, isSecure = isParentSecure)
             } else {
-                driveRepository.createFolder(name)
+                // Physical folder (Channel) can only be created at root
+                if (_currentFolderId.value == null && _currentVirtualFolderId.value == "0") {
+                    driveRepository.createFolder(name)
+                }
             }
         }
     }
@@ -194,12 +204,12 @@ class HomeViewModel @Inject constructor(
             
             driveRepository.fetchFiles(_currentFolderId.value)
             
+            // For root/Saved Messages, wait a bit longer for deep metadata scan to process messages
             if (_currentFolderId.value == null) {
-                // Wait for sync to complete or at least identity resolved
-                kotlinx.coroutines.withTimeoutOrNull(5000) {
+                kotlinx.coroutines.withTimeoutOrNull(30000) { // Increased to 30s
                     driveRepository.getSavedMessagesChatIdFlow().collect { id ->
                         if (id != 0L) {
-                            kotlinx.coroutines.delay(1000) // Extra time for DB
+                            kotlinx.coroutines.delay(3000) // Extra time for distributed metadata processing
                             _isSyncingMetadata.value = false
                             _isInitialLoading.value = false
                             _isRefreshing.value = false

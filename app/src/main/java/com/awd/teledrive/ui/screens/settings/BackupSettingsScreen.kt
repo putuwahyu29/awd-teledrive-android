@@ -87,7 +87,7 @@ fun BackupSettingsScreen(
             if (path != null) {
                 viewModel.addCustomBackupFolder(path)
             } else {
-                Toast.makeText(context, "Gagal mendapatkan path folder. Silakan gunakan folder standar.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.err_folder_path), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -165,7 +165,7 @@ fun BackupSettingsContent(
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (total > 0) "Mencadangkan: $current dari $total" else "Menyiapkan...",
+                                    text = if (total > 0) stringResource(R.string.backing_up_files, current, total) else stringResource(R.string.preparing),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.weight(1f)
@@ -206,7 +206,7 @@ fun BackupSettingsContent(
                 ) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Tambah Folder", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.add_folder), style = MaterialTheme.typography.labelMedium)
                 }
             }
             

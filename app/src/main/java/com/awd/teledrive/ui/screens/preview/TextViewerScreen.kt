@@ -30,7 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.awd.teledrive.R
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -54,7 +56,7 @@ fun TextViewerScreen(
                 content = file.readText()
             }
         } catch (e: Exception) {
-            content = "Gagal membaca file: ${e.message}"
+            content = context.getString(R.string.err_read_file, e.message ?: "")
         } finally {
             isLoading = false
         }
@@ -66,7 +68,7 @@ fun TextViewerScreen(
                 title = { Text(fileName, maxLines = 1) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
@@ -75,7 +77,7 @@ fun TextViewerScreen(
                             clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("TeleDrive Content", content)))
                         }
                     }) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Salin")
+                        Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.copy))
                     }
                 }
             )

@@ -154,7 +154,7 @@ fun SettingsScreen(
                 if (viewModel.importMetadata(json)) {
                     Toast.makeText(context, context.getString(R.string.import_success), Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, "Import failed: Invalid file format", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.import_fail_format), Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -229,7 +229,7 @@ fun SettingsScreen(
         },
         onManualCloudBackup = {
             viewModel.triggerCloudMetadataBackup()
-            Toast.makeText(context, "Backup sent to Saved Messages", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.backup_sent_saved), Toast.LENGTH_SHORT).show()
         },
         cloudBackups = cloudBackups,
         onLoadCloudBackups = viewModel::loadCloudBackups,
@@ -238,7 +238,7 @@ fun SettingsScreen(
                 if (success) {
                     Toast.makeText(context, context.getString(R.string.import_success), Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, "Restore failed", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.restore_fail), Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -953,10 +953,10 @@ private fun formatSize(size: Long): String {
 private fun formatCacheAge(seconds: Int, context: android.content.Context): String {
     return when (seconds) {
         0 -> context.getString(R.string.no_limit)
-        7 * 24 * 60 * 60 -> if (Locale.getDefault().language == "in" || Locale.getDefault().language == "id") "1 Minggu" else "1 Week"
-        30 * 24 * 60 * 60 -> if (Locale.getDefault().language == "in" || Locale.getDefault().language == "id") "1 Bulan" else "1 Month"
-        90 * 24 * 60 * 60 -> if (Locale.getDefault().language == "in" || Locale.getDefault().language == "id") "3 Bulan" else "3 Months"
-        365 * 24 * 60 * 60 -> if (Locale.getDefault().language == "in" || Locale.getDefault().language == "id") "1 Tahun" else "1 Year"
-        else -> "$seconds detik"
+        7 * 24 * 60 * 60 -> "1 " + context.getString(R.string.week)
+        30 * 24 * 60 * 60 -> "1 " + context.getString(R.string.month)
+        90 * 24 * 60 * 60 -> "3 " + context.getString(R.string.months)
+        365 * 24 * 60 * 60 -> "1 " + context.getString(R.string.year)
+        else -> context.getString(R.string.seconds_label, seconds)
     }
 }

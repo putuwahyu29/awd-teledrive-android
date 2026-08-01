@@ -30,7 +30,7 @@ class EncryptionManager @Inject constructor() {
         return SecretKeySpec(keyBytes, "AES")
     }
 
-    fun encryptFile(inputFile: File, outputFile: File, password: String) {
+    suspend fun encryptFile(inputFile: File, outputFile: File, password: String, onProgress: (Float) -> Unit = {}) {
         val salt = ByteArray(SALT_LENGTH_BYTE)
         SecureRandom().nextBytes(salt)
         
@@ -41,6 +41,10 @@ class EncryptionManager @Inject constructor() {
         val cipher = Cipher.getInstance(ALGORITHM)
         cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BIT, iv))
         
+        val totalSize = inputFile.length()
+        var processedBytes = 0L
+        var lastReportedProgress = -1f
+
         FileOutputStream(outputFile).use { fos ->
             // Write metadata first: Salt then IV
             fos.write(salt)
@@ -48,13 +52,34 @@ class EncryptionManager @Inject constructor() {
             
             CipherOutputStream(fos, cipher).use { cos ->
                 inputFile.inputStream().use { fis ->
-                    fis.copyTo(cos)
+                    val buffer = ByteArray(32768) // Increased buffer to 32KB
+                    var bytesRead = fis.read(buffer)
+                    while (bytesRead != -1) {
+                        cos.write(buffer, 0, bytesRead)
+                        processedBytes += bytesRead
+                        
+                        if (totalSize > 0) {
+                            val currentProgress = processedBytes.toFloat() / totalSize.toFloat()
+                            // Only callback every 2% to reduce overhead during fast processing
+                            if (currentProgress - lastReportedProgress >= 0.02f || currentProgress >= 1f) {
+                                onProgress(currentProgress)
+                                lastReportedProgress = currentProgress
+                                // Small yield to prevent thread starvation during heavy IO
+                                kotlinx.coroutines.yield()
+                            }
+                        }
+                        bytesRead = fis.read(buffer)
+                    }
                 }
             }
         }
     }
 
-    fun decryptFile(encryptedFile: File, outputFile: File, password: String) {
+    suspend fun decryptFile(encryptedFile: File, outputFile: File, password: String, onProgress: (Float) -> Unit = {}) {
+        val totalSize = encryptedFile.length() - SALT_LENGTH_BYTE - IV_LENGTH_BYTE
+        var processedBytes = 0L
+        var lastReportedProgress = -1f
+
         FileInputStream(encryptedFile).use { fis ->
             val salt = ByteArray(SALT_LENGTH_BYTE)
             val saltRead = fis.read(salt)
@@ -70,7 +95,23 @@ class EncryptionManager @Inject constructor() {
             
             CipherInputStream(fis, cipher).use { cis ->
                 FileOutputStream(outputFile).use { fos ->
-                    cis.copyTo(fos)
+                    val buffer = ByteArray(32768) // Increased buffer to 32KB
+                    var bytesRead = cis.read(buffer)
+                    while (bytesRead != -1) {
+                        fos.write(buffer, 0, bytesRead)
+                        processedBytes += bytesRead
+                        
+                        if (totalSize > 0) {
+                            val currentProgress = processedBytes.toFloat() / totalSize.toFloat()
+                            // Only callback every 2%
+                            if (currentProgress - lastReportedProgress >= 0.02f || currentProgress >= 1f) {
+                                onProgress(currentProgress)
+                                lastReportedProgress = currentProgress
+                                kotlinx.coroutines.yield()
+                            }
+                        }
+                        bytesRead = cis.read(buffer)
+                    }
                 }
             }
         }

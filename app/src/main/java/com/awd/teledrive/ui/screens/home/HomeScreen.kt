@@ -265,12 +265,12 @@ fun HomeContent(
     if (itemToRename != null) {
         AlertDialog(
             onDismissRequest = { itemToRename = null },
-            title = { Text("Ubah Nama") },
+            title = { Text(stringResource(R.string.rename)) },
             text = {
                 OutlinedTextField(
                     value = renameValue,
                     onValueChange = { renameValue = it },
-                    label = { Text("Nama Baru") },
+                    label = { Text(stringResource(R.string.folder_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -279,10 +279,10 @@ fun HomeContent(
                 Button(onClick = {
                     itemToRename?.let { onRenameItem(it, renameValue) }
                     itemToRename = null
-                }) { Text("Simpan") }
+                }) { Text(stringResource(R.string.confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { itemToRename = null }) { Text("Batal") }
+                TextButton(onClick = { itemToRename = null }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -292,6 +292,8 @@ fun HomeContent(
     var largeFileToUpload by remember { mutableStateOf<Pair<File, String>?>(null) }
     var isPreparingFile by remember { mutableStateOf(false) }
     var newFolderName by remember { mutableStateOf("") }
+    var isVirtualFolder by remember { mutableStateOf(true) }
+    var isSecureFolder by remember { mutableStateOf(false) }
     var isSearchActive by remember { mutableStateOf(false) }
 
     val multiFilePickerLauncher = rememberLauncherForActivityResult(
@@ -464,12 +466,12 @@ fun HomeContent(
     if (isPreparingFile) {
         AlertDialog(
             onDismissRequest = { },
-            title = { Text("Menyiapkan File") },
+            title = { Text(stringResource(R.string.preparing_file)) },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text("Sedang menyalin file ke memori sementara...")
+                    Text(stringResource(R.string.copying_to_temp))
                 }
             },
             confirmButton = {}
@@ -491,9 +493,12 @@ fun HomeContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    val isInsidePhysicalFolder = currentFolderId != null
+                    val isInsidePhysicalFolder = currentFolderId != null && currentVirtualFolderId == "0"
+                    val isInsideVirtualFolder = currentVirtualFolderId != "0"
+                    
                     if (!isInsidePhysicalFolder) {
                         NewActionItem(Icons.Default.CreateNewFolder, stringResource(R.string.folder)) {
+                            isVirtualFolder = isInsideVirtualFolder // Force virtual if already in virtual
                             showNewSheet = false
                             showFolderDialog = true
                         }
@@ -510,9 +515,6 @@ fun HomeContent(
             }
         }
     }
-
-    var isVirtualFolder by remember { mutableStateOf(true) }
-    var isSecureFolder by remember { mutableStateOf(false) }
 
     if (showFolderDialog) {
         AlertDialog(
@@ -541,16 +543,16 @@ fun HomeContent(
                                             isSecureFolder = it
                                             if (it) isVirtualFolder = false
                                         } else if (it) {
-                                            Toast.makeText(context, "Setel Master Password di Pengaturan terlebih dahulu", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, context.getString(R.string.set_password_first), Toast.LENGTH_LONG).show()
                                         }
                                     },
                                     enabled = isPasswordSet
                                 )
                                 Spacer(Modifier.width(12.dp))
                                 Column {
-                                    Text("Folder Aman (Terenkripsi)", style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.secure_folder_label), style = MaterialTheme.typography.bodyMedium)
                                     Text(
-                                        "Grup Private terenkripsi. Membutuhkan Master Password.",
+                                        stringResource(R.string.private_encrypted_group_desc),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -565,9 +567,9 @@ fun HomeContent(
                                     )
                                     Spacer(Modifier.width(12.dp))
                                     Column {
-                                        Text(if (isVirtualFolder) "Virtual Folder" else "Channel Folder", style = MaterialTheme.typography.bodyMedium)
+                                        Text(if (isVirtualFolder) stringResource(R.string.virtual_folder) else stringResource(R.string.channel_folder), style = MaterialTheme.typography.bodyMedium)
                                         Text(
-                                            if (isVirtualFolder) "Sinkron antar device tanpa membuat channel baru" else "Membuat channel baru di Telegram",
+                                            if (isVirtualFolder) stringResource(R.string.sync_across_devices_desc) else stringResource(R.string.create_channel_telegram_desc),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -580,7 +582,7 @@ fun HomeContent(
                         isVirtualFolder = true
                         isSecureFolder = false
                         Text(
-                            "Membuat folder virtual di dalam " + (currentFolderName ?: "folder ini"),
+                            stringResource(R.string.create_new) + " " + stringResource(R.string.virtual_folder) + " " + stringResource(R.string.in_label) + " " + (currentFolderName ?: stringResource(R.string.this_folder)),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -876,6 +878,9 @@ fun HomeContent(
         },
         floatingActionButton = {
             if (!isOffline) {
+                // Restriction: Cannot create any folders inside physical folders (Channels)
+                val isInsidePhysicalFolder = currentFolderId != null && currentVirtualFolderId == "0"
+                
                 ExtendedFloatingActionButton(
                     onClick = { showNewSheet = true },
                     icon = { Icon(Icons.Default.Add, null) },
@@ -937,7 +942,7 @@ fun HomeContent(
                                 )
                                 if (searchQuery.isEmpty()) {
                                     Text(
-                                        text = "Ketuk tombol '+' untuk menambahkan file",
+                                        text = stringResource(R.string.tap_to_add),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.outline,
                                         modifier = Modifier.padding(top = 4.dp)
@@ -963,7 +968,7 @@ fun HomeContent(
                                             if (isSelectionMode) {
                                                 val hasFiles = items.filter { it.id in selectedItems }.any { it is DriveItem.File }
                                                 if (hasFiles && item is DriveItem.Folder) {
-                                                    Toast.makeText(context, "Cannot select folders when files are selected", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, context.getString(R.string.selection_folder_error), Toast.LENGTH_SHORT).show()
                                                 } else {
                                                     selectedItems = if (isSelected) selectedItems - item.id else selectedItems + item.id
                                                 }
@@ -1014,7 +1019,7 @@ fun HomeContent(
                                             if (isSelectionMode) {
                                                 val hasFiles = items.filter { it.id in selectedItems }.any { it is DriveItem.File }
                                                 if (hasFiles && item is DriveItem.Folder) {
-                                                    Toast.makeText(context, "Cannot select folders when files are selected", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, context.getString(R.string.selection_folder_error), Toast.LENGTH_SHORT).show()
                                                 } else {
                                                     selectedItems = if (isSelected) selectedItems - item.id else selectedItems + item.id
                                                 }
@@ -1300,30 +1305,37 @@ fun DriveListItem(
                 
                 var showInfoDialog by remember { mutableStateOf(false) }
                 
-                DropdownMenu(expanded = showItemMenu, onDismissRequest = { showItemMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Bagikan") },
-                        onClick = { 
-                            onShareClick()
-                            showItemMenu = false 
-                        },
-                        leadingIcon = { Icon(Icons.Default.Share, null) }
-                    )
+                val isVirtual = item is DriveItem.Folder && item.isVirtual
+                val isSecure = (item is DriveItem.Folder && item.isSecure) || (item is DriveItem.File && item.isEncrypted)
 
-                    DropdownMenuItem(
-                        text = { Text(if (item.isStarred) stringResource(R.string.remove_star) else stringResource(R.string.add_star)) },
-                        onClick = { 
-                            onStarClick()
-                            showItemMenu = false 
-                        },
-                        leadingIcon = { 
-                            Icon(
-                                imageVector = if (item.isStarred) Icons.Default.Star else Icons.Outlined.StarOutline,
-                                contentDescription = null,
-                                tint = if (item.isStarred) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
-                            ) 
-                        }
-                    )
+                DropdownMenu(expanded = showItemMenu, onDismissRequest = { showItemMenu = false }) {
+                    if (!isVirtual && !isSecure) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.share)) },
+                            onClick = { 
+                                onShareClick()
+                                showItemMenu = false 
+                            },
+                            leadingIcon = { Icon(Icons.Default.Share, null) }
+                        )
+                    }
+
+                    if (!isSecure) {
+                        DropdownMenuItem(
+                            text = { Text(if (item.isStarred) stringResource(R.string.remove_star) else stringResource(R.string.add_star)) },
+                            onClick = { 
+                                onStarClick()
+                                showItemMenu = false 
+                            },
+                            leadingIcon = { 
+                                Icon(
+                                    imageVector = if (item.isStarred) Icons.Default.Star else Icons.Outlined.StarOutline,
+                                    contentDescription = null,
+                                    tint = if (item.isStarred) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
+                                ) 
+                            }
+                        )
+                    }
 
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.info)) },
@@ -1333,7 +1345,7 @@ fun DriveListItem(
 
                     onRenameClick?.let {
                         DropdownMenuItem(
-                            text = { Text("Ubah Nama") },
+                            text = { Text(stringResource(R.string.rename)) },
                             onClick = {
                                 it()
                                 showItemMenu = false
@@ -1342,36 +1354,38 @@ fun DriveListItem(
                         )
                     }
 
-                    if (item is DriveItem.File) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.download)) },
-                            onClick = { 
-                                onDownloadClick()
-                                showItemMenu = false 
-                            },
-                            leadingIcon = { Icon(Icons.Default.Download, null) }
-                        )
-                    } else if (item is DriveItem.Folder) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.download_contents)) },
-                            onClick = { 
-                                onDownloadClick()
-                                showItemMenu = false 
-                            },
-                            leadingIcon = { Icon(Icons.Default.Download, null) }
-                        )
-                    }
-
-                    if (item !is DriveItem.Folder) {
-                        onMoveClick?.let {
+                    if (!isSecure) {
+                        if (item is DriveItem.File) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.move)) },
-                                onClick = {
-                                    it()
-                                    showItemMenu = false
+                                text = { Text(stringResource(R.string.download)) },
+                                onClick = { 
+                                    onDownloadClick()
+                                    showItemMenu = false 
                                 },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null) }
+                                leadingIcon = { Icon(Icons.Default.Download, null) }
                             )
+                        } else if (item is DriveItem.Folder) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.download_contents)) },
+                                onClick = { 
+                                    onDownloadClick()
+                                    showItemMenu = false 
+                                },
+                                leadingIcon = { Icon(Icons.Default.Download, null) }
+                            )
+                        }
+
+                        if (item !is DriveItem.Folder) {
+                            onMoveClick?.let {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.move)) },
+                                    onClick = {
+                                        it()
+                                        showItemMenu = false
+                                    },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null) }
+                                )
+                            }
                         }
                     }
 
@@ -1491,23 +1505,30 @@ fun DriveGridItem(
                                 modifier = Modifier.size(16.dp)
                             )
                         }
+                        val isVirtual = item is DriveItem.Folder && item.isVirtual
+                        val isSecure = (item is DriveItem.Folder && item.isSecure) || (item is DriveItem.File && item.isEncrypted)
+
                         DropdownMenu(expanded = showItemMenu, onDismissRequest = { showItemMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Bagikan") },
-                                onClick = { onShareClick(); showItemMenu = false },
-                                leadingIcon = { Icon(Icons.Default.Share, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(if (item.isStarred) stringResource(R.string.remove_star) else stringResource(R.string.add_star)) },
-                                onClick = { onStarClick(); showItemMenu = false },
-                                leadingIcon = { 
-                                    Icon(
-                                        imageVector = if (item.isStarred) Icons.Default.Star else Icons.Outlined.StarOutline,
-                                        contentDescription = null,
-                                        tint = if (item.isStarred) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    ) 
-                                }
-                            )
+                            if (!isVirtual && !isSecure) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.share)) },
+                                    onClick = { onShareClick(); showItemMenu = false },
+                                    leadingIcon = { Icon(Icons.Default.Share, null) }
+                                )
+                            }
+                            if (!isSecure) {
+                                DropdownMenuItem(
+                                    text = { Text(if (item.isStarred) stringResource(R.string.remove_star) else stringResource(R.string.add_star)) },
+                                    onClick = { onStarClick(); showItemMenu = false },
+                                    leadingIcon = { 
+                                        Icon(
+                                            imageVector = if (item.isStarred) Icons.Default.Star else Icons.Outlined.StarOutline,
+                                            contentDescription = null,
+                                            tint = if (item.isStarred) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        ) 
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.info)) },
                                 onClick = { showInfoDialog = true; showItemMenu = false },
@@ -1515,31 +1536,33 @@ fun DriveGridItem(
                             )
                             onRenameClick?.let {
                                 DropdownMenuItem(
-                                    text = { Text("Ubah Nama") },
+                                    text = { Text(stringResource(R.string.rename)) },
                                     onClick = { it(); showItemMenu = false },
                                     leadingIcon = { Icon(Icons.Default.Edit, null) }
                                 )
                             }
-                            if (item is DriveItem.File) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.download)) },
-                                    onClick = { onDownloadClick(); showItemMenu = false },
-                                    leadingIcon = { Icon(Icons.Default.Download, null) }
-                                )
-                            } else if (item is DriveItem.Folder) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.download_contents)) },
-                                    onClick = { onDownloadClick(); showItemMenu = false },
-                                    leadingIcon = { Icon(Icons.Default.Download, null) }
-                                )
-                            }
-                            if (item !is DriveItem.Folder) {
-                                onMoveClick?.let {
+                            if (!isSecure) {
+                                if (item is DriveItem.File) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.move)) },
-                                        onClick = { it(); showItemMenu = false },
-                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null) }
+                                        text = { Text(stringResource(R.string.download)) },
+                                        onClick = { onDownloadClick(); showItemMenu = false },
+                                        leadingIcon = { Icon(Icons.Default.Download, null) }
                                     )
+                                } else if (item is DriveItem.Folder) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.download_contents)) },
+                                        onClick = { onDownloadClick(); showItemMenu = false },
+                                        leadingIcon = { Icon(Icons.Default.Download, null) }
+                                    )
+                                }
+                                if (item !is DriveItem.Folder) {
+                                    onMoveClick?.let {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.move)) },
+                                            onClick = { it(); showItemMenu = false },
+                                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null) }
+                                        )
+                                    }
                                 }
                             }
                             onDeleteClick?.let {
@@ -1642,7 +1665,7 @@ fun ShareDialog(
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.width(12.dp))
-                Text("Berbagi ${item.name}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stringResource(R.string.share_item, item.name), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         },
         text = {
@@ -1653,7 +1676,7 @@ fun ShareDialog(
                             CircularProgressIndicator()
                         }
                     } else {
-                        Text("Link Berbagi Private:", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.private_share_link), style = MaterialTheme.typography.labelLarge)
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = MaterialTheme.shapes.small,
@@ -1661,7 +1684,7 @@ fun ShareDialog(
                         ) {
                             Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    inviteLink ?: "Gagal membuat link",
+                                    inviteLink ?: stringResource(R.string.link_gen_failed),
                                     modifier = Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodySmall,
                                     maxLines = 1,
@@ -1671,7 +1694,7 @@ fun ShareDialog(
                                     inviteLink?.let {
                                         val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Link Folder", it))
-                                        Toast.makeText(context, "Link disalin", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.copy_success), Toast.LENGTH_SHORT).show()
                                     }
                                 }) {
                                     Icon(Icons.Default.ContentPaste, contentDescription = "Copy")
@@ -1680,9 +1703,9 @@ fun ShareDialog(
                         }
                         
                         Spacer(Modifier.height(16.dp))
-                        Text("Orang yang memiliki akses:", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.people_with_access), style = MaterialTheme.typography.labelLarge)
                         if (members.isEmpty()) {
-                            Text("Belum ada yang bergabung", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            Text(stringResource(R.string.no_one_joined), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         } else {
                             LazyColumn(Modifier.heightIn(max = 150.dp)) {
                                 items(members) { user ->
@@ -1696,7 +1719,7 @@ fun ShareDialog(
                         }
                     }
                 } else if (item is DriveItem.File) {
-                    Text("Berbagi ke nomor Telegram:", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.share_to_telegram), style = MaterialTheme.typography.labelLarge)
                     OutlinedTextField(
                         value = shareToPhone,
                         onValueChange = { shareToPhone = it },
@@ -1722,22 +1745,22 @@ fun ShareDialog(
                             onShareFile(shareToPhone, item.id) { success, error ->
                                 isSharingFile = false
                                 if (success) {
-                                    Toast.makeText(context, "File berhasil dibagikan", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.share_success), Toast.LENGTH_SHORT).show()
                                     onDismiss()
                                 } else {
-                                    Toast.makeText(context, "Gagal: $error", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, context.getString(R.string.failed_with_error, error ?: ""), Toast.LENGTH_LONG).show()
                                 }
                             }
                         }
                     },
                     enabled = !isSharingFile && shareToPhone.isNotBlank()
                 ) {
-                    Text("Kirim")
+                    Text(stringResource(R.string.send))
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Selesai") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         }
     )
 }

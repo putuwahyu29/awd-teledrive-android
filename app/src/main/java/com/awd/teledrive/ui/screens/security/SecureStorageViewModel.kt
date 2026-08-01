@@ -47,6 +47,9 @@ class SecureStorageViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
 
+    private val _isInitialLoading = MutableStateFlow(true)
+    val isInitialLoading = _isInitialLoading.asStateFlow()
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val secureItems: StateFlow<List<DriveItem>> = combine(
         listOf(_currentFolderId, _currentVirtualFolderId, _searchQuery, _sortOrder, _filterType, driveRepository.getSavedMessagesChatIdFlow())
@@ -122,7 +125,9 @@ class SecureStorageViewModel @Inject constructor(
 
     fun fetchItems() {
         viewModelScope.launch {
-            _isRefreshing.value = true
+            if (secureItems.value.isEmpty()) _isInitialLoading.value = true
+            else _isRefreshing.value = true
+            
             driveRepository.fetchFiles(_currentFolderId.value)
             
             if (_currentFolderId.value == null) {
@@ -131,6 +136,7 @@ class SecureStorageViewModel @Inject constructor(
             } else {
                 kotlinx.coroutines.delay(1000)
             }
+            _isInitialLoading.value = false
             _isRefreshing.value = false
         }
     }

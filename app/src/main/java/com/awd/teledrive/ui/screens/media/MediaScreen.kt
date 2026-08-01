@@ -212,7 +212,7 @@ fun MediaContent(
     ) { padding ->
         if (mediaItems.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Tidak ada media")
+                Text(stringResource(R.string.no_results))
             }
         } else {
             LazyVerticalGrid(

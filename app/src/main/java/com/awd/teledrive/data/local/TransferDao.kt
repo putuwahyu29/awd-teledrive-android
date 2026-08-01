@@ -17,17 +17,23 @@ interface TransferDao {
     @Query("SELECT * FROM transfers WHERE fileId = :fileId LIMIT 1")
     suspend fun getTransferByFileId(fileId: Int): TransferEntity?
 
+    @Query("SELECT * FROM transfers WHERE localPath = :path LIMIT 1")
+    suspend fun getTransferByLocalPath(path: String): TransferEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransfer(transfer: TransferEntity)
 
     @Query("DELETE FROM transfers WHERE remoteUniqueId = :uniqueId")
     suspend fun deleteTransfer(uniqueId: String)
 
-    @Query("DELETE FROM transfers WHERE status = 'Selesai' OR status = 'Dibatalkan' OR status LIKE 'Gagal%'")
+    @Query("DELETE FROM transfers WHERE status = 'Completed' OR status = 'Selesai' OR status = 'Cancelled' OR status = 'Dibatalkan' OR status LIKE 'Gagal%' OR status LIKE 'Failed%'")
     suspend fun clearCompleted()
 
     @Query("UPDATE transfers SET progress = :progress, status = :status, downloadedSize = :downloadedSize WHERE remoteUniqueId = :uniqueId")
     suspend fun updateProgress(uniqueId: String, progress: Float, status: String, downloadedSize: Long)
+
+    @Query("UPDATE transfers SET progress = :progress, status = :status WHERE remoteUniqueId = :uniqueId")
+    suspend fun updateProgressOnly(uniqueId: String, progress: Float, status: String)
 
     @Query("UPDATE transfers SET remoteUniqueId = :newUniqueId WHERE remoteUniqueId = :oldUniqueId")
     suspend fun updateUniqueId(oldUniqueId: String, newUniqueId: String)

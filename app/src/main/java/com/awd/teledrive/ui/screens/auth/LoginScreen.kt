@@ -237,7 +237,7 @@ fun LoginContent(
                                 OutlinedTextField(
                                     value = apiId,
                                     onValueChange = { apiId = it },
-                                    label = { Text("API ID") },
+                                    label = { Text(stringResource(R.string.api_id_label)) },
                                     modifier = Modifier.fillMaxWidth(),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
@@ -249,7 +249,7 @@ fun LoginContent(
                                             val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                             clipboardManager.primaryClip?.getItemAt(0)?.text?.let { apiId = it.toString() }
                                         }) {
-                                            Icon(Icons.Default.ContentPaste, contentDescription = "Paste")
+                                            Icon(Icons.Default.ContentPaste, contentDescription = stringResource(R.string.paste_label))
                                         }
                                     }
                                 )
@@ -257,7 +257,7 @@ fun LoginContent(
                                 OutlinedTextField(
                                     value = apiHash,
                                     onValueChange = { apiHash = it },
-                                    label = { Text("API Hash") },
+                                    label = { Text(stringResource(R.string.api_hash_label)) },
                                     modifier = Modifier.fillMaxWidth(),
                                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
@@ -269,7 +269,7 @@ fun LoginContent(
                                             val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                             clipboardManager.primaryClip?.getItemAt(0)?.text?.let { apiHash = it.toString() }
                                         }) {
-                                            Icon(Icons.Default.ContentPaste, contentDescription = "Paste")
+                                            Icon(Icons.Default.ContentPaste, contentDescription = stringResource(R.string.paste_label))
                                         }
                                     }
                                 )
@@ -282,7 +282,7 @@ fun LoginContent(
                             value = phoneNumber,
                             onValueChange = { phoneNumber = it },
                             label = { Text(stringResource(R.string.phone_number)) },
-                            placeholder = { Text("+628...") },
+                            placeholder = { Text(stringResource(R.string.phone_placeholder)) },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { onLoginSubmit(apiId, apiHash, phoneNumber) }),

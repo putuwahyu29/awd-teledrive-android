@@ -102,7 +102,7 @@ class LoginViewModel @Inject constructor(
 
     fun onLoginSubmit(apiId: String, apiHash: String, phoneNumber: String) {
         if (apiId.isBlank() || apiHash.isBlank() || phoneNumber.isBlank()) {
-            authRepository.setLocalError(context.getString(R.string.err_unknown, "Semua kolom wajib diisi"))
+            authRepository.setLocalError(context.getString(R.string.err_all_fields_required))
             return
         }
         

@@ -17,6 +17,10 @@ class TransfersViewModel @Inject constructor(
         transferRepository.cancelTransfer(uniqueId)
     }
 
+    fun removeTransfer(uniqueId: String) {
+        transferRepository.removeTransfer(uniqueId)
+    }
+
     fun clearCompleted() {
         transferRepository.clearCompleted()
     }

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,12 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.awd.teledrive.R
 import com.awd.teledrive.core.FileSharingHelper
 import com.awd.teledrive.ui.theme.TeledriveTheme
 import androidx.annotation.OptIn as AndroidOptIn
@@ -44,9 +47,19 @@ fun VideoPlayerScreen(url: String, onBack: () -> Unit) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     
+    var isLoading by remember { mutableStateOf(true) }
+
     val exoPlayer = if (isPreview) null else remember {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(url))
+            addListener(object : androidx.media3.common.Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    isLoading = state == androidx.media3.common.Player.STATE_BUFFERING
+                }
+                override fun onIsLoadingChanged(loading: Boolean) {
+                    if (!loading) isLoading = false
+                }
+            })
             prepare()
             playWhenReady = true
         }
@@ -56,6 +69,7 @@ fun VideoPlayerScreen(url: String, onBack: () -> Unit) {
         player = exoPlayer,
         url = url,
         onBack = onBack,
+        isLoading = isLoading
     )
 
     if (exoPlayer != null) {
@@ -73,7 +87,8 @@ fun VideoPlayerScreen(url: String, onBack: () -> Unit) {
 fun VideoPlayerContent(
     player: ExoPlayer?,
     url: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    isLoading: Boolean
 ) {
     val context = LocalContext.current
     val fileName = url.substringAfterLast('/')
@@ -83,7 +98,7 @@ fun VideoPlayerContent(
                 title = { Text(fileName, maxLines = 1) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
@@ -93,7 +108,7 @@ fun VideoPlayerContent(
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Buka dengan Aplikasi Lain") },
+                            text = { Text(stringResource(R.string.open_with_other)) },
                             onClick = {
                                 // Guess mime type or use general video/
                                 FileSharingHelper.openFileExternally(context, url, "video/*")
@@ -124,14 +139,21 @@ fun VideoPlayerContent(
                     },
                     modifier = Modifier.fillMaxSize()
                 )
-            } else {
+            }
+            
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = androidx.compose.ui.graphics.Color.White
+                )
+            }
+            
+            if (player == null && !isLoading) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(androidx.compose.ui.graphics.Color.DarkGray),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Video Player Placeholder", color = androidx.compose.ui.graphics.Color.White)
+                    Text(stringResource(R.string.video_player_placeholder), color = androidx.compose.ui.graphics.Color.White)
                 }
             }
         }
@@ -142,7 +164,7 @@ fun VideoPlayerContent(
 @Composable
 fun VideoPlayerPreview() {
     TeledriveTheme {
-        VideoPlayerContent(player = null, url = "") {}
+        VideoPlayerContent(player = null, url = "", onBack = {}, isLoading = false)
     }
 }
 

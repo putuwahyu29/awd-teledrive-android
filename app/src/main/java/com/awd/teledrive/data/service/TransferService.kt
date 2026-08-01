@@ -48,7 +48,7 @@ class TransferService : Service() {
             }
             ACTION_CANCEL_ALL -> {
                 transferRepository.transfers.value.values
-                    .filter { it.status == "Mengunduh" || it.status == "Mengunggah" }
+                    .filter { it.status == TransferRepository.Status.DOWNLOADING || it.status == TransferRepository.Status.UPLOADING || it.status == TransferRepository.Status.QUEUED }
                     .forEach { transferRepository.cancelTransfer(it.remoteUniqueId) }
             }
         }
@@ -71,9 +71,11 @@ class TransferService : Service() {
             delay(1000)
             transferRepository.transfers.collectLatest { transfers ->
                 val transferring = transfers.values.filter { 
-                    it.status != "Selesai" && it.status != "Dibatalkan" && !it.status.startsWith("Gagal")
+                    it.status != TransferRepository.Status.COMPLETED && 
+                    it.status != TransferRepository.Status.CANCELLED && 
+                    !it.status.startsWith(TransferRepository.Status.FAILED)
                 }
-                val completed = transfers.values.filter { it.status == "Selesai" }
+                val completed = transfers.values.filter { it.status == TransferRepository.Status.COMPLETED }
                 
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 
@@ -82,11 +84,10 @@ class TransferService : Service() {
                         val text = getString(R.string.all_transfers_completed)
                         val notification = createNotification(text, 1f, false)
                         notificationManager.notify(NOTIFICATION_ID, notification)
-                        // Don't delay before stopping, let the OS handle the last notification update
-                        // and the service will stop when foreground is stopped.
+                        // Clear the database or just let it be? For now just stop.
                     }
-                    android.util.Log.d("TransferService", "Tidak ada transfer aktif, menghentikan layanan.")
-                    stopForeground(STOP_FOREGROUND_DETACH)
+                    android.util.Log.d("TransferService", "No active transfers, stopping service.")
+                    stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 } else {
                     val totalBytes = transferring.sumOf { it.totalSize }

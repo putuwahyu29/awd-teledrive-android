@@ -153,7 +153,7 @@ fun NavGraph(navController: NavHostController) {
                                 if (securityViewModel.unlockWithBiometric()) {
                                     navController.navigate(Screen.SecureStorage.route)
                                 } else {
-                                    android.widget.Toast.makeText(context, "Password belum tersinkron. Masuk manual sekali untuk mengaktifkan biometrik.", android.widget.Toast.LENGTH_LONG).show()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.password_unsynced_toast), android.widget.Toast.LENGTH_LONG).show()
                                     showUnlockDialog = true
                                 }
                             }
@@ -163,9 +163,9 @@ fun NavGraph(navController: NavHostController) {
 
                 val promptInfo = remember {
                     BiometricPrompt.PromptInfo.Builder()
-                        .setTitle("Buka Folder Aman")
-                        .setSubtitle("Gunakan sidik jari atau wajah")
-                        .setNegativeButtonText("Gunakan Password")
+                        .setTitle(context.getString(R.string.unlock_secure_folder))
+                        .setSubtitle(context.getString(R.string.biometric_subtitle))
+                        .setNegativeButtonText(context.getString(R.string.use_password))
                         .build()
                 }
 
@@ -402,12 +402,12 @@ fun NavGraph(navController: NavHostController) {
         AlertDialog(
             onDismissRequest = { settingsViewModel.dismissCacheWarning() },
             title = { Text(stringResource(R.string.clear_cache_confirm_title)) },
-            text = { Text("Penyimpanan lokal Anda telah melewati batas yang ditentukan. Apakah Anda ingin membersihkan cache sekarang?") },
+            text = { Text(stringResource(R.string.cache_limit_reached_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     settingsViewModel.clearCache()
                     settingsViewModel.dismissCacheWarning()
-                }) { Text("Bersihkan Sekarang", color = MaterialTheme.colorScheme.primary) }
+                }) { Text(stringResource(R.string.clear_now), color = MaterialTheme.colorScheme.primary) }
             },
             dismissButton = {
                 TextButton(onClick = { settingsViewModel.dismissCacheWarning() }) { Text(stringResource(R.string.later)) }

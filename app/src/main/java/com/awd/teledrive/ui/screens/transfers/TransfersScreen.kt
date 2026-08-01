@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Upload
@@ -20,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -49,6 +51,7 @@ fun TransfersScreen(
         transfers = transfers.values.toList(),
         onBack = onBack,
         onCancelTransfer = viewModel::cancelTransfer,
+        onRemoveTransfer = viewModel::removeTransfer,
         onClearCompleted = viewModel::clearCompleted
     )
 }
@@ -59,6 +62,7 @@ fun TransfersContent(
     transfers: List<TransferInfo>,
     onBack: () -> Unit,
     onCancelTransfer: (String) -> Unit,
+    onRemoveTransfer: (String) -> Unit,
     onClearCompleted: () -> Unit
 ) {
     Scaffold(
@@ -96,9 +100,11 @@ fun TransfersContent(
                                     formatSize(transfer.downloadedSize)
                                 }
                                 val statusText = when(transfer.status) {
-                                    "Mengunduh" -> stringResource(R.string.downloading_file, "")
-                                    "Mengunggah" -> stringResource(R.string.uploading_file, "")
-                                    "Selesai" -> stringResource(R.string.completed)
+                                    com.awd.teledrive.data.repository.TransferRepository.Status.QUEUED -> stringResource(R.string.status_queued)
+                                    com.awd.teledrive.data.repository.TransferRepository.Status.DOWNLOADING -> stringResource(R.string.downloading_file, "")
+                                    com.awd.teledrive.data.repository.TransferRepository.Status.UPLOADING -> stringResource(R.string.uploading_file, "")
+                                    com.awd.teledrive.data.repository.TransferRepository.Status.COMPLETED -> stringResource(R.string.completed)
+                                    com.awd.teledrive.data.repository.TransferRepository.Status.CANCELLED -> stringResource(R.string.cancel)
                                     else -> transfer.status
                                 }
                                 Text("$statusText - $sizeText (${(transfer.progress * 100).toInt()}%)")
@@ -115,9 +121,18 @@ fun TransfersContent(
                             )
                         },
                         trailingContent = {
-                            if (transfer.status == "Mengunduh" || transfer.status == "Mengunggah") {
+                            val isTerminal = transfer.status == com.awd.teledrive.data.repository.TransferRepository.Status.COMPLETED || 
+                                             transfer.status == com.awd.teledrive.data.repository.TransferRepository.Status.CANCELLED ||
+                                             transfer.status.startsWith(com.awd.teledrive.data.repository.TransferRepository.Status.FAILED)
+                            
+                            if (!isTerminal) {
                                 IconButton(onClick = { onCancelTransfer(transfer.remoteUniqueId) }) {
                                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel))
+                                }
+                            } else {
+                                // Allow individual removal for finished/failed tasks
+                                IconButton(onClick = { onRemoveTransfer(transfer.remoteUniqueId) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = MaterialTheme.colorScheme.outline)
                                 }
                             }
                         }
@@ -139,6 +154,7 @@ fun TransfersPreview() {
             ),
             onBack = {},
             onCancelTransfer = {},
+            onRemoveTransfer = {},
             onClearCompleted = {}
         )
     }

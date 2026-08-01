@@ -46,8 +46,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.awd.teledrive.R
 import com.awd.teledrive.core.FileSharingHelper
 import com.awd.teledrive.ui.theme.TeledriveTheme
 import kotlinx.coroutines.withContext
@@ -118,7 +120,7 @@ fun PdfViewerContent(
                 title = { Text(fileName, maxLines = 1) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
@@ -128,7 +130,7 @@ fun PdfViewerContent(
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Buka dengan Aplikasi Lain") },
+                            text = { Text(stringResource(R.string.open_with_other)) },
                             onClick = {
                                 FileSharingHelper.openFileExternally(context, filePath, "application/pdf")
                                 showMenu = false
@@ -147,7 +149,7 @@ fun PdfViewerContent(
             }
         } else if (pdfRenderer == null && !isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Gagal memuat PDF", color = Color.White)
+                Text(stringResource(R.string.err_load_pdf), color = Color.White)
             }
         } else {
             Box(

@@ -104,6 +104,7 @@ fun PreviewScreen(
     val transfers by viewModel.transfers.collectAsState()
     val decryptedPaths by viewModel.decryptedPaths.collectAsState()
     val isDecrypting by viewModel.isDecrypting.collectAsState()
+    val isOpening by viewModel.isOpening.collectAsState()
     
     if (items.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -113,12 +114,26 @@ fun PreviewScreen(
         val initialPage = remember { viewModel.getInitialIndex() }
         val pagerState = rememberPagerState(initialPage = initialPage) { items.size }
 
+        // Sync pager with items list to prevent jumping when list updates
+        LaunchedEffect(items) {
+            if (items.isNotEmpty()) {
+                val currentFileId = items.getOrNull(pagerState.currentPage)?.id
+                if (currentFileId != null) {
+                    val newIndex = items.indexOfFirst { it.id == currentFileId }
+                    if (newIndex != -1 && newIndex != pagerState.currentPage) {
+                        pagerState.scrollToPage(newIndex)
+                    }
+                }
+            }
+        }
+
         PreviewPager(
             items = items,
             folders = folders,
             transfers = transfers,
             decryptedPaths = decryptedPaths,
             isDecrypting = isDecrypting,
+            isOpening = isOpening,
             pagerState = pagerState,
             onBack = onBack,
             onOpenPlayer = onOpenPlayer,
@@ -145,6 +160,7 @@ fun PreviewPager(
     transfers: Map<String, TransferInfo>,
     decryptedPaths: Map<Long, String>,
     isDecrypting: Map<Long, Boolean>,
+    isOpening: Map<Long, Boolean>,
     pagerState: PagerState,
     onBack: () -> Unit,
     onOpenPlayer: (String) -> Unit,
@@ -179,16 +195,16 @@ fun PreviewPager(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Hapus Item") },
-            text = { Text("Apakah Anda yakin ingin menghapus item ini secara permanen?") },
+            title = { Text(stringResource(R.string.delete_item_title)) },
+            text = { Text(stringResource(R.string.delete_item_confirm)) },
             confirmButton = {
                 TextButton(onClick = {
                     onDeleteItem(currentFile)
                     showDeleteConfirm = false
-                }) { Text("Hapus", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Batal") }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -200,7 +216,7 @@ fun PreviewPager(
             text = {
                 Column {
                     ListItem(
-                        headlineContent = { Text("Penyimpanan Utama (Root)") },
+                        headlineContent = { Text(stringResource(R.string.root_storage)) },
                         leadingContent = { Icon(Icons.Default.Home, null, tint = MaterialTheme.colorScheme.primary) },
                         modifier = Modifier.clickable {
                             onMoveItem(currentFile, 0L)
@@ -210,7 +226,7 @@ fun PreviewPager(
                     HorizontalDivider()
 
                     if (folders.isEmpty()) {
-                        Text("Tidak ada folder lain.", modifier = Modifier.padding(16.dp))
+                        Text(stringResource(R.string.no_folders_found), modifier = Modifier.padding(16.dp))
                     } else {
                         LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                             items(folders) { folder ->
@@ -265,25 +281,25 @@ fun PreviewPager(
                     if (currentFile.localPath != null) {
                         IconButton(onClick = { 
                             onSaveToDevice(currentFile)
-                            Toast.makeText(context, "Disimpan ke Unduhan", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.save_success), Toast.LENGTH_SHORT).show()
                         }) {
-                            Icon(Icons.Default.DownloadForOffline, contentDescription = "Simpan ke Perangkat")
+                            Icon(Icons.Default.DownloadForOffline, contentDescription = stringResource(R.string.save_success))
                         }
                         IconButton(onClick = { 
                             FileSharingHelper.shareFile(context, currentFile.localPath!!, currentFile.mimeType)
                         }) {
-                            Icon(Icons.Default.Share, contentDescription = "Bagikan")
+                            Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share))
                         }
                     }
                     
                     var showMenu by remember { mutableStateOf(false) }
                     IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        Icon(Icons.Default.MoreVert, contentDescription = null)
                     }
                     
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text(if (currentFile.isStarred) "Hapus Bintang" else "Berbintang") },
+                            text = { Text(if (currentFile.isStarred) stringResource(R.string.remove_star) else stringResource(R.string.add_star)) },
                             onClick = { onToggleStarred(currentFile); showMenu = false },
                             leadingIcon = { 
                                 Icon(
@@ -295,7 +311,7 @@ fun PreviewPager(
                         )
                         if (currentFile.localPath != null) {
                             DropdownMenuItem(
-                                text = { Text("Buka dengan Aplikasi Lain") },
+                                text = { Text(stringResource(R.string.open_with_other)) },
                                 onClick = { 
                                     FileSharingHelper.openFileExternally(context, currentFile.localPath!!, currentFile.mimeType)
                                     showMenu = false 
@@ -304,12 +320,12 @@ fun PreviewPager(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("Info") },
+                            text = { Text(stringResource(R.string.info)) },
                             onClick = { showInfoDialog = true; showMenu = false },
                             leadingIcon = { Icon(Icons.Default.Info, null) }
                         )
                         DropdownMenuItem(
-                            text = { Text("Hapus") },
+                            text = { Text(stringResource(R.string.delete)) },
                             onClick = { showDeleteConfirm = true; showMenu = false },
                             leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
                         )
@@ -330,6 +346,7 @@ fun PreviewPager(
             val transfer = transfers[file.remoteUniqueId] ?: transfers.values.find { it.fileId == file.telegramFileId }
             val displayPath = decryptedPaths[file.id] ?: file.localPath
             val decrypting = isDecrypting[file.id] ?: false
+            val opening = isOpening[file.id] ?: false
 
             if (file.isSplit) {
                 SplitFilePreviewPlaceholder(file)
@@ -339,6 +356,7 @@ fun PreviewPager(
                     displayPath = displayPath,
                     transfer = transfer,
                     isDecrypting = decrypting,
+                    isOpening = opening,
                     onOpenPlayer = onOpenPlayer,
                     onOpenPdf = onOpenPdf,
                     onOpenText = onOpenText,
@@ -352,17 +370,23 @@ fun PreviewPager(
     if (showInfoDialog) {
         AlertDialog(
             onDismissRequest = { showInfoDialog = false },
-            title = { Text("Informasi File") },
+            title = { Text(stringResource(R.string.file_info)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Nama: ${currentFile.name}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Ukuran: ${formatSize(currentFile.size)}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Tipe: ${currentFile.mimeType}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Status: ${if (currentFile.localPath != null) "Tersedia Offline" else "Hanya Cloud"}", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.name_label, currentFile.name), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.size_label, formatSize(currentFile.size)), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.type_label, currentFile.mimeType), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        stringResource(
+                            R.string.status_label,
+                            if (currentFile.localPath != null) stringResource(R.string.available_offline) else stringResource(R.string.cloud_only)
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showInfoDialog = false }) { Text("Tutup") }
+                TextButton(onClick = { showInfoDialog = false }) { Text(stringResource(R.string.close)) }
             }
         )
     }
@@ -374,6 +398,7 @@ fun PreviewContent(
     displayPath: String?,
     transfer: TransferInfo?,
     isDecrypting: Boolean,
+    isOpening: Boolean,
     onOpenPlayer: (String) -> Unit,
     onOpenPdf: (String) -> Unit,
     onOpenText: (String) -> Unit,
@@ -382,8 +407,10 @@ fun PreviewContent(
 ) {
     val context = LocalContext.current
     val isImage = file.mimeType.startsWith("image/")
-    val isTransferring = transfer != null && (transfer.status == "Mengunduh" || transfer.status == "Mengunggah")
-    val isLoading = isTransferring || isDecrypting
+    var isMediaRendering by remember(displayPath) { mutableStateOf(displayPath != null) }
+    
+    val isTransferring = transfer != null && (transfer.status == com.awd.teledrive.data.repository.TransferRepository.Status.DOWNLOADING || transfer.status == com.awd.teledrive.data.repository.TransferRepository.Status.UPLOADING)
+    val isLoading = isTransferring || isDecrypting || isOpening || isMediaRendering
     
     var scale by remember(file.id, isZoomEnabled) { mutableStateOf(1f) }
     var offset by remember(file.id, isZoomEnabled) { mutableStateOf(Offset.Zero) }
@@ -424,40 +451,76 @@ fun PreviewContent(
                         .background(color.copy(alpha = 0.1f), MaterialTheme.shapes.medium)
                 }
             ) {
-                val thumbnailModel = displayPath ?: file.thumbnailPath
-                if (thumbnailModel != null) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(if (isImage) 120.dp else 160.dp),
-                            tint = color.copy(alpha = 0.3f)
-                        )
+                androidx.compose.animation.Crossfade(targetState = displayPath, label = "PreviewCrossfade") { path ->
+                    if (path != null) {
                         AsyncImage(
-                            model = thumbnailModel,
+                            model = path,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
+                            contentScale = ContentScale.Fit,
+                            onLoading = { isMediaRendering = true },
+                            onSuccess = { isMediaRendering = false },
+                            onError = { isMediaRendering = false }
                         )
+                    } else {
+                        val thumbnailModel = file.thumbnailPath
+                        if (thumbnailModel != null) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(if (isImage) 120.dp else 160.dp),
+                                    tint = color.copy(alpha = 0.3f)
+                                )
+                                AsyncImage(
+                                    model = thumbnailModel,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(if (isImage) 120.dp else 160.dp),
+                                tint = color.copy(alpha = 0.3f)
+                            )
+                        }
                     }
-                } else {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(if (isImage) 120.dp else 160.dp),
-                        tint = color.copy(alpha = 0.3f)
-                    )
                 }
                 
-                if (displayPath == null && isLoading) {
-                    CircularProgressIndicator(
-                        progress = { 
-                            if (isDecrypting) 1f else (transfer?.progress ?: 0f)
-                        },
-                        modifier = Modifier.size(if (isImage) 100.dp else 160.dp),
-                        strokeWidth = 4.dp,
-                        color = if (isDecrypting) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                    )
+                if ((displayPath == null || isMediaRendering) && isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.3f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                progress = { 
+                                    if (isDecrypting || isOpening || isMediaRendering) 1f else (transfer?.progress ?: 0f)
+                                },
+                                modifier = Modifier.size(if (isImage) 80.dp else 120.dp),
+                                strokeWidth = 6.dp,
+                                color = if (isDecrypting) MaterialTheme.colorScheme.secondary 
+                                        else if (isOpening || isMediaRendering) MaterialTheme.colorScheme.tertiary 
+                                        else MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = if (isDecrypting) stringResource(R.string.decrypting) 
+                                       else if (isOpening || isMediaRendering) stringResource(R.string.preparing_media)
+                                       else stringResource(R.string.loading_percentage, (transfer?.progress?.times(100))?.toInt() ?: 0),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
             }
             
@@ -472,14 +535,16 @@ fun PreviewContent(
                 
                 if (displayPath == null && isLoading) {
                     Text(
-                        text = if (isDecrypting) "Mendekripsi..." else "${(transfer?.progress?.times(100))?.toInt()}% Memuat...",
+                        text = if (isDecrypting) stringResource(R.string.decrypting) 
+                               else if (isOpening) stringResource(R.string.preparing_media)
+                               else stringResource(R.string.loading_percentage, (transfer?.progress?.times(100))?.toInt() ?: 0),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                 } else if (displayPath == null) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "Belum dimuat",
+                            text = if (file.isEncrypted && file.localPath != null) stringResource(R.string.decrypt_to_view) else stringResource(R.string.not_loaded),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -488,9 +553,12 @@ fun PreviewContent(
                             onClick = onLoadFile,
                             shape = MaterialTheme.shapes.medium
                         ) {
-                            Icon(Icons.Default.CloudDownload, contentDescription = null)
+                            val buttonIcon = if (file.isEncrypted && file.localPath != null) Icons.Default.Lock else Icons.Default.CloudDownload
+                            val buttonText = if (file.isEncrypted && file.localPath != null) stringResource(R.string.decrypt) else stringResource(R.string.load_file)
+                            
+                            Icon(buttonIcon, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Muat File")
+                            Text(buttonText)
                         }
                     }
                 } else {
@@ -529,7 +597,7 @@ fun PreviewContent(
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Buka Media")
+                            Text(stringResource(R.string.open_media))
                         }
                     } else {
                         Button(
@@ -537,7 +605,7 @@ fun PreviewContent(
                                 try {
                                     FileSharingHelper.openFileExternally(context, displayPath, file.mimeType)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Gagal membuka file", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.err_open_file), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -545,7 +613,7 @@ fun PreviewContent(
                         ) {
                             Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Buka dengan Aplikasi Lain")
+                            Text(stringResource(R.string.open_with_other))
                         }
                     }
                 }
@@ -553,7 +621,9 @@ fun PreviewContent(
                 if (isLoading) {
                     // Show floating progress for image
                     Text(
-                        text = if (isDecrypting) "Dekripsi..." else "${(transfer?.progress?.times(100))?.toInt()}%",
+                        text = if (isDecrypting) stringResource(R.string.decrypting) 
+                               else if (isOpening) stringResource(R.string.preparing_media)
+                               else "${(transfer?.progress?.times(100))?.toInt()}%",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 16.dp)
@@ -564,15 +634,18 @@ fun PreviewContent(
                         shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.padding(bottom = 16.dp)
                     ) {
-                        Icon(Icons.Default.CloudDownload, contentDescription = null)
+                        val buttonIcon = if (file.isEncrypted && file.localPath != null) Icons.Default.Lock else Icons.Default.CloudDownload
+                        val buttonText = if (file.isEncrypted && file.localPath != null) stringResource(R.string.decrypt) else stringResource(R.string.load_image)
+
+                        Icon(buttonIcon, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Muat Gambar")
+                        Text(buttonText)
                     }
                 }
             }
         }
 
-        if (file.isEncrypted && displayPath == null && !isLoading) {
+        if (file.isEncrypted && displayPath == null && !isLoading && file.localPath == null) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center
@@ -580,7 +653,7 @@ fun PreviewContent(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Lock, null, tint = Color.White, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(16.dp))
-                    Text("File Terenkripsi", color = Color.White)
+                    Text(stringResource(R.string.decrypt_to_view), color = Color.White)
                 }
             }
         }
@@ -602,20 +675,20 @@ fun SplitFilePreviewPlaceholder(file: DriveItem.File) {
             )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "File Terlalu Besar",
+                text = stringResource(R.string.file_too_large),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.error
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "File ini terpecah menjadi ${file.totalParts} bagian di Telegram. Pratinjau (Preview) tidak didukung untuk file besar yang terpecah.",
+                text = stringResource(R.string.split_file_preview_desc, file.totalParts),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Silakan unduh file untuk membukanya secara utuh di perangkat Anda.",
+                text = stringResource(R.string.download_to_view_full),
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )

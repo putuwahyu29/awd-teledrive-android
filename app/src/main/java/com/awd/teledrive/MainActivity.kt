@@ -166,7 +166,7 @@ fun GlobalUpdateDialog(
                 onDismiss()
             }
             is UpdateState.Error -> {
-                android.widget.Toast.makeText(context, "Update check failed: ${updateState.message}", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(R.string.err_update_check, updateState.message), android.widget.Toast.LENGTH_SHORT).show()
                 onDismiss()
             }
             else -> {}

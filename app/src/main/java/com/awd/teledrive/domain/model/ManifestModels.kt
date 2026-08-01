@@ -8,7 +8,33 @@ data class TeleDriveManifest(
     val updatedAt: Long = System.currentTimeMillis() / 1000,
     val virtualFolders: Map<String, VirtualFolder> = emptyMap(),
     val fileMappings: Map<String, String> = emptyMap(), // messageId -> virtualFolderId
-    val secureFolderChatIds: Set<Long> = emptySet()
+    val secureFolderChatIds: Set<Long> = emptySet(),
+    val splitFileMasters: Map<String, SplitFileMaster> = emptyMap(), // groupId -> MasterRecord
+    val folderMetadataIds: Map<String, Long> = emptyMap(), // virtualId -> messageId
+    val fileMetadataIds: Map<String, Long> = emptyMap() // telegramMessageId -> metadataMessageId
+)
+
+@Serializable
+data class SplitFileMaster(
+    val groupId: String,
+    val originalName: String,
+    val totalSize: Long,
+    val mimeType: String,
+    val totalParts: Int,
+    val virtualFolderId: String? = "0",
+    val isEncrypted: Boolean = false,
+    val partMessageIds: List<Long> = emptyList(),
+    val metadataMessageId: Long = 0
+)
+
+@Serializable
+data class FileMetadata(
+    val messageId: Long,
+    val fileName: String,
+    val virtualFolderId: String? = "0",
+    val isEncrypted: Boolean = false,
+    val splitGroupId: String? = null,
+    val metadataMessageId: Long = 0
 )
 
 data class CloudBackup(

@@ -14,6 +14,7 @@ import com.awd.teledrive.data.model.TransferInfo
 import com.awd.teledrive.data.remote.TelegramClient
 import com.awd.teledrive.data.secure.SecureSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,6 +35,27 @@ class TransferRepository @Inject constructor(
     private val transferDao: TransferDao,
     @param:ApplicationContext private val context: Context,
 ) {
+    object Status {
+        const val QUEUED = "Queued"
+        const val DOWNLOADING = "Downloading"
+        const val UPLOADING = "Uploading"
+        const val COMPLETED = "Completed"
+        const val FAILED = "Failed"
+        const val CANCELLED = "Cancelled"
+    }
+
+    private data class PendingTransfer(
+        val remoteUniqueId: String,
+        val block: suspend () -> Unit
+    )
+
+    private val queue = mutableListOf<PendingTransfer>()
+    private var activeTransferId: String? = null
+    private val completionDeferreds = mutableMapOf<String, CompletableDeferred<Unit>>()
+    private val idMigrationMap = mutableMapOf<String, String>()
+    private val lastUpdateMap = mutableMapOf<String, Long>()
+    private val lastProgressMap = mutableMapOf<String, Float>()
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     val transfers = transferDao.getAllTransfersFlow()
@@ -47,7 +69,8 @@ class TransferRepository @Inject constructor(
                     isDownload = entity.isDownload,
                     status = entity.status,
                     totalSize = entity.totalSize,
-                    downloadedSize = entity.downloadedSize
+                    downloadedSize = entity.downloadedSize,
+                    localPath = entity.localPath
                 )
             })
         }
@@ -59,9 +82,11 @@ class TransferRepository @Inject constructor(
                 val file = update.file
                 val uniqueId = file.remote.uniqueId
                 val fileId = file.id
+                val localPath = file.local.path
                 
-                // Find in DB
-                val entity = transferDao.getTransferByUniqueId(uniqueId) 
+                // Find in DB with path priority to prevent duplicates during handover
+                val entity = (if (localPath.isNotEmpty()) transferDao.getTransferByLocalPath(localPath) else null)
+                    ?: transferDao.getTransferByUniqueId(uniqueId) 
                     ?: transferDao.getTransferByFileId(fileId)
                     ?: return@collect
                 
@@ -73,23 +98,53 @@ class TransferRepository @Inject constructor(
                 val progress = if (isCompleted) 1.0f else (if (totalSize > 0L) currentSize.toFloat() / totalSize.toFloat() else 0.0f)
                 
                 val status = when {
-                    isCompleted -> "Selesai"
-                    isDownload && file.local.isDownloadingActive -> "Mengunduh"
-                    !isDownload && (file.remote.isUploadingActive || file.remote.uploadedSize > 0L) -> "Mengunggah"
-                    file.local.canBeDownloaded.not() && isDownload && !file.local.isDownloadingCompleted -> "Gagal"
+                    isCompleted -> Status.COMPLETED
+                    isDownload && file.local.isDownloadingActive -> Status.DOWNLOADING
+                    !isDownload && (file.remote.isUploadingActive || file.remote.uploadedSize > 0L) -> Status.UPLOADING
+                    file.local.canBeDownloaded.not() && isDownload && !file.local.isDownloadingCompleted -> Status.FAILED
                     else -> entity.status
                 }
                 
+                val isTerminal = status == Status.COMPLETED || status == Status.FAILED || status == Status.CANCELLED
+                if (isTerminal) {
+                    synchronized(queue) {
+                        if (uniqueId.isNotEmpty()) {
+                            completionDeferreds[uniqueId]?.complete(Unit)
+                            Log.d("TransferRepo", "Completed deferred for uniqueId: $uniqueId")
+                        }
+                        completionDeferreds[entity.remoteUniqueId]?.complete(Unit)
+                        // Also try by fileId
+                        completionDeferreds[fileId.toString()]?.complete(Unit)
+                        
+                        if (activeTransferId == uniqueId || activeTransferId == entity.remoteUniqueId || activeTransferId == fileId.toString()) {
+                            activeTransferId = null
+                            Log.d("TransferRepo", "Active transfer cleared. Processing next in queue.")
+                            processQueue()
+                        }
+                    }
+                }
+                
+                // If ID has changed (e.g. from temp to real), perform migration
                 if (uniqueId.isNotEmpty() && entity.remoteUniqueId != uniqueId) {
-                    transferDao.deleteTransfer(entity.remoteUniqueId)
+                    Log.d("TransferRepo", "Handover detected: Migrating ${entity.remoteUniqueId} -> $uniqueId")
+                    val oldId = entity.remoteUniqueId
+                    transferDao.deleteTransfer(oldId)
                     transferDao.insertTransfer(entity.copy(
                         remoteUniqueId = uniqueId,
                         fileId = fileId,
                         progress = progress,
                         status = status,
                         downloadedSize = currentSize,
-                        totalSize = totalSize
+                        totalSize = totalSize,
+                        localPath = if (localPath.isNotEmpty()) localPath else entity.localPath
                     ))
+                    
+                    synchronized(queue) {
+                        idMigrationMap[oldId] = uniqueId
+                        if (activeTransferId == oldId) {
+                            activeTransferId = uniqueId
+                        }
+                    }
                 } else {
                     transferDao.updateProgress(entity.remoteUniqueId, progress, status, currentSize)
                 }
@@ -182,7 +237,101 @@ class TransferRepository @Inject constructor(
         }
     }
 
-    fun addTransfer(fileId: Int, remoteUniqueId: String, fileName: String, isDownload: Boolean, totalSize: Long = 0, isCompleted: Boolean = false, status: String? = null) {
+    fun updateRemoteUniqueId(oldId: String, newUniqueId: String, newFileId: Int, localPath: String? = null) {
+        scope.launch {
+            val entity = transferDao.getTransferByUniqueId(oldId) ?: return@launch
+            transferDao.deleteTransfer(oldId)
+            transferDao.insertTransfer(entity.copy(
+                remoteUniqueId = newUniqueId,
+                fileId = newFileId,
+                localPath = localPath ?: entity.localPath
+            ))
+            
+            synchronized(queue) {
+                idMigrationMap[oldId] = newUniqueId
+                if (activeTransferId == oldId) {
+                    activeTransferId = newUniqueId
+                }
+                // Migrate deferred if exists
+                completionDeferreds[oldId]?.let {
+                    Log.d("TransferRepo", "Migrating deferred from $oldId to $newUniqueId")
+                    completionDeferreds[newUniqueId] = it
+                    completionDeferreds.remove(oldId)
+                }
+            }
+        }
+    }
+
+    fun enqueueTransfer(
+        fileId: Int,
+        remoteUniqueId: String,
+        fileName: String,
+        isDownload: Boolean,
+        totalSize: Long,
+        localPath: String? = null,
+        block: suspend () -> Unit
+    ) {
+        scope.launch {
+            val key = if (remoteUniqueId.isNotEmpty()) remoteUniqueId else "temp_${System.currentTimeMillis()}_$fileId"
+            
+            // Check if already in queue or active
+            if (activeTransferId == key || queue.any { it.remoteUniqueId == key }) return@launch
+            
+            val entity = TransferEntity(
+                remoteUniqueId = key,
+                fileId = fileId,
+                fileName = fileName,
+                progress = 0f,
+                isDownload = isDownload,
+                status = Status.QUEUED,
+                totalSize = totalSize,
+                downloadedSize = 0L,
+                localPath = localPath
+            )
+            transferDao.insertTransfer(entity)
+            
+            synchronized(queue) {
+                queue.add(PendingTransfer(key, block))
+            }
+            processQueue()
+        }
+    }
+
+    private fun processQueue() {
+        synchronized(queue) {
+            if (activeTransferId != null || queue.isEmpty()) return
+            
+            val next = queue.removeAt(0)
+            activeTransferId = next.remoteUniqueId
+            
+            scope.launch {
+                try {
+                    // Initial status update
+                    val entity = transferDao.getTransferByUniqueId(next.remoteUniqueId)
+                    if (entity != null) {
+                        val startStatus = if (entity.isDownload) Status.DOWNLOADING else Status.UPLOADING
+                        transferDao.updateProgress(next.remoteUniqueId, 0f, startStatus, 0L)
+                    }
+                    
+                    // Execute the actual task
+                    next.block()
+                } catch (e: Exception) {
+                    Log.e("TransferRepo", "Error in queued task ${next.remoteUniqueId}: ${e.message}")
+                    transferDao.updateProgress(next.remoteUniqueId, 0f, Status.FAILED, 0L)
+                    
+                    // On failure, move to next
+                    synchronized(queue) {
+                        if (activeTransferId == next.remoteUniqueId) {
+                            activeTransferId = null
+                        }
+                    }
+                    processQueue()
+                }
+            }
+        }
+    }
+
+    fun addTransfer(fileId: Int, remoteUniqueId: String, fileName: String, isDownload: Boolean, totalSize: Long = 0, isCompleted: Boolean = false, status: String? = null, localPath: String? = null) {
         scope.launch {
             val key = if (remoteUniqueId.isNotEmpty()) remoteUniqueId else "temp_${System.currentTimeMillis()}_$fileId"
             val entity = TransferEntity(
@@ -191,19 +340,44 @@ class TransferRepository @Inject constructor(
                 fileName = fileName,
                 progress = if (isCompleted) 1f else 0f,
                 isDownload = isDownload,
-                status = status ?: if (isCompleted) "Selesai" else (if (isDownload) "Mengunduh" else "Mengunggah"),
+                status = status ?: if (isCompleted) Status.COMPLETED else (if (isDownload) Status.DOWNLOADING else Status.UPLOADING),
                 totalSize = totalSize,
-                downloadedSize = if (isCompleted) totalSize else 0L
+                downloadedSize = if (isCompleted) totalSize else 0L,
+                localPath = localPath
             )
             transferDao.insertTransfer(entity)
+            
+            // If we manually add an active transfer, we should track it to not block the queue
+            if (entity.status == Status.DOWNLOADING || entity.status == Status.UPLOADING) {
+                activeTransferId = key
+            }
         }
     }
 
-    fun updateTransferManual(remoteUniqueId: String, progress: Float, status: String) {
+    fun updateTransferManual(remoteUniqueId: String, progress: Float, status: String, throttled: Boolean = false) {
+        val targetId = synchronized(queue) { idMigrationMap[remoteUniqueId] ?: remoteUniqueId }
+        
+        if (throttled) {
+            val now = System.currentTimeMillis()
+            val lastTime = lastUpdateMap[targetId] ?: 0L
+            val lastProgress = lastProgressMap[targetId] ?: -1f
+            
+            // Limit to once every 500ms OR 2% progress change to really reduce DB pressure
+            if (now - lastTime < 500 && Math.abs(progress - lastProgress) < 0.02f) {
+                return
+            }
+            lastUpdateMap[targetId] = now
+            lastProgressMap[targetId] = progress
+        }
+
+        // Use a single-threaded approach or sequential queue for DB writes during preparation
+        // to prevent "Database is locked" or high contention
         scope.launch {
-            val entity = transferDao.getTransferByUniqueId(remoteUniqueId) ?: return@launch
-            val downloaded = (progress * entity.totalSize).toLong()
-            transferDao.updateProgress(remoteUniqueId, progress, status, downloaded)
+            try {
+                transferDao.updateProgressOnly(targetId, progress, status)
+            } catch (e: Exception) {
+                Log.e("TransferRepo", "Failed to update progress for $targetId: ${e.message}")
+            }
         }
     }
 
@@ -215,15 +389,67 @@ class TransferRepository @Inject constructor(
 
     fun cancelTransfer(uniqueId: String) {
         scope.launch {
+            var foundInQueue = false
+            synchronized(queue) {
+                val inQueue = queue.find { it.remoteUniqueId == uniqueId }
+                if (inQueue != null) {
+                    queue.remove(inQueue)
+                    foundInQueue = true
+                }
+                completionDeferreds[uniqueId]?.complete(Unit)
+            }
+
+            if (foundInQueue) {
+                transferDao.updateProgress(uniqueId, 0f, Status.CANCELLED, 0L)
+                return@launch
+            }
+
             val entity = transferDao.getTransferByUniqueId(uniqueId) ?: return@launch
             telegramClient.send(org.drinkless.tdlib.TdApi.CancelDownloadFile(entity.fileId, true))
-            transferDao.updateProgress(uniqueId, entity.progress, "Dibatalkan", entity.downloadedSize)
+            transferDao.updateProgress(uniqueId, entity.progress, Status.CANCELLED, entity.downloadedSize)
+            
+            if (activeTransferId == uniqueId) {
+                activeTransferId = null
+                processQueue()
+            }
         }
     }
 
     fun clearCompleted() {
         scope.launch {
             transferDao.clearCompleted()
+        }
+    }
+
+    suspend fun waitForCompletion(remoteUniqueId: String) {
+        // Resolve final ID in case of migration
+        val finalId = synchronized(queue) { idMigrationMap[remoteUniqueId] ?: remoteUniqueId }
+        
+        // Check current status first to avoid waiting for already completed transfers
+        val currentTransfers = transfers.value
+        val currentTransfer = currentTransfers[finalId]
+        if (currentTransfer != null) {
+            val status = currentTransfer.status
+            if (status == Status.COMPLETED || status == Status.FAILED || status == Status.CANCELLED || status.startsWith("Failed")) {
+                Log.d("TransferRepo", "waitForCompletion: $finalId already in terminal state: $status")
+                return
+            }
+        }
+
+        val deferred = synchronized(queue) {
+            // Re-check migration inside lock to be safe
+            val targetId = idMigrationMap[remoteUniqueId] ?: remoteUniqueId
+            completionDeferreds.getOrPut(targetId) { 
+                Log.d("TransferRepo", "waitForCompletion: Creating new deferred for $targetId")
+                CompletableDeferred() 
+            }
+        }
+        deferred.await()
+        synchronized(queue) {
+            completionDeferreds.remove(finalId)
+            val originalId = idMigrationMap.filterValues { it == finalId }.keys.firstOrNull()
+            if (originalId != null) idMigrationMap.remove(originalId)
+            Log.d("TransferRepo", "waitForCompletion: $finalId finished waiting.")
         }
     }
 }

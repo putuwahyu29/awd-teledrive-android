@@ -77,6 +77,9 @@ interface DriveDao {
         insertItems(updatedItems)
     }
 
+    @Query("UPDATE drive_items SET virtualParentId = :parentId WHERE id = :id")
+    suspend fun updateVirtualParent(id: Long, parentId: String)
+
     @Query("SELECT * FROM drive_items WHERE parentChatId = :chatId")
     suspend fun getItemsSync(chatId: Long): List<DriveItemEntity>
 
@@ -97,6 +100,9 @@ interface DriveDao {
 
     @Query("UPDATE drive_items SET localPath = NULL")
     suspend fun clearAllLocalPaths()
+
+    @Query("UPDATE drive_items SET virtualParentId = '0' WHERE isVirtual = 0")
+    suspend fun resetAllFileVirtualParents()
 
     @Query("UPDATE drive_items SET thumbnailPath = NULL")
     suspend fun clearAllThumbnailPaths()
