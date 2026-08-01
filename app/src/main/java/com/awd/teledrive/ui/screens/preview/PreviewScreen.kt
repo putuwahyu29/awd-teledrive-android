@@ -344,7 +344,11 @@ fun PreviewPager(
         ) { pageIndex ->
             val file = items[pageIndex]
             val transfer = transfers[file.remoteUniqueId] ?: transfers.values.find { it.fileId == file.telegramFileId }
-            val displayPath = decryptedPaths[file.id] ?: file.localPath
+            
+            // CRITICAL FIX: If file is encrypted, NEVER use localPath (it's scrambled bytes). 
+            // Wait until decryptedPaths has the clean file.
+            val displayPath = if (file.isEncrypted) decryptedPaths[file.id] else file.localPath
+            
             val decrypting = isDecrypting[file.id] ?: false
             val opening = isOpening[file.id] ?: false
 
@@ -407,16 +411,23 @@ fun PreviewContent(
 ) {
     val context = LocalContext.current
     val isImage = file.mimeType.startsWith("image/")
-    var isMediaRendering by remember(displayPath) { mutableStateOf(displayPath != null) }
+    
+    // Explicitly track if the media is currently being decoded/rendered by Coil
+    var isMediaRendering by remember(displayPath) { mutableStateOf(false) }
+    
+    // Check for waiting-for-decryption state to avoid blank screen
+    val isWaitingForDecryption = file.isEncrypted && file.localPath != null && displayPath == null
     
     val isTransferring = transfer != null && (transfer.status == com.awd.teledrive.data.repository.TransferRepository.Status.DOWNLOADING || transfer.status == com.awd.teledrive.data.repository.TransferRepository.Status.UPLOADING)
-    val isLoading = isTransferring || isDecrypting || isOpening || isMediaRendering
+    
+    // isLoading is true if we are transferring, decrypting, or if the image loader is still working
+    val isLoading = isTransferring || isDecrypting || isOpening || isMediaRendering || isWaitingForDecryption
     
     var scale by remember(file.id, isZoomEnabled) { mutableStateOf(1f) }
     var offset by remember(file.id, isZoomEnabled) { mutableStateOf(Offset.Zero) }
 
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().background(Color.Black), // Background black for focus
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -490,11 +501,12 @@ fun PreviewContent(
                     }
                 }
                 
-                if ((displayPath == null || isMediaRendering) && isLoading) {
+                // Centered Loading Overlay
+                if (isLoading) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.3f)),
+                            .background(Color.Black.copy(alpha = 0.5f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -503,19 +515,23 @@ fun PreviewContent(
                         ) {
                             CircularProgressIndicator(
                                 progress = { 
-                                    if (isDecrypting || isOpening || isMediaRendering) 1f else (transfer?.progress ?: 0f)
+                                    if (isDecrypting || isOpening || isMediaRendering || isWaitingForDecryption) 1f else (transfer?.progress ?: 0f)
                                 },
                                 modifier = Modifier.size(if (isImage) 80.dp else 120.dp),
                                 strokeWidth = 6.dp,
-                                color = if (isDecrypting) MaterialTheme.colorScheme.secondary 
+                                color = if (isDecrypting || isWaitingForDecryption) MaterialTheme.colorScheme.secondary 
                                         else if (isOpening || isMediaRendering) MaterialTheme.colorScheme.tertiary 
                                         else MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(16.dp))
+                            val statusText = when {
+                                isDecrypting || isWaitingForDecryption -> stringResource(R.string.decrypting)
+                                isOpening || isMediaRendering -> stringResource(R.string.preparing_media)
+                                isTransferring -> stringResource(R.string.loading_percentage, (transfer?.progress?.times(100))?.toInt() ?: 0)
+                                else -> stringResource(R.string.loading)
+                            }
                             Text(
-                                text = if (isDecrypting) stringResource(R.string.decrypting) 
-                                       else if (isOpening || isMediaRendering) stringResource(R.string.preparing_media)
-                                       else stringResource(R.string.loading_percentage, (transfer?.progress?.times(100))?.toInt() ?: 0),
+                                text = statusText,
                                 style = MaterialTheme.typography.titleMedium,
                                 color = Color.White
                             )

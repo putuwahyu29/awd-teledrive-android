@@ -740,17 +740,9 @@ class DriveRepository @Inject constructor(
                 if (sgResult is TdApi.Supergroup) {
                     val status = sgResult.status
                     val isCreator = status is TdApi.ChatMemberStatusCreator
-                    val isSecure = isKnownSecure || (isPrivateGroup && isCreator)
+                    val isSecure = isKnownSecure || (isPrivateGroup && isCreator && currentManifest.secureFolderChatIds.contains(chat.id))
                     
                     if (isCreator || status is TdApi.ChatMemberStatusAdministrator) {
-                        // Auto-add secure groups to manifest if not already known
-                        if (isPrivateGroup && isCreator && !isKnownSecure) {
-                            val updatedSecureIds = currentManifest.secureFolderChatIds.toMutableSet()
-                            updatedSecureIds.add(chat.id)
-                            currentManifest = currentManifest.copy(secureFolderChatIds = updatedSecureIds)
-                            saveCloudManifest()
-                        }
-
                         scope.launch {
                             val existing = driveDao.getItemById(chat.id, savedMessagesChatId)
                             driveDao.insertItems(listOf(DriveItemEntity(chat.id, chat.title, 0, "folder", 0, savedMessagesChatId, true, isStarred = existing?.isStarred ?: false, createdAt = existing?.createdAt ?: System.currentTimeMillis(), isSecure = isSecure)))
@@ -1243,18 +1235,29 @@ class DriveRepository @Inject constructor(
     }
 
     fun getInternalCacheSize(): Flow<Long> = kotlinx.coroutines.flow.flow {
+        // Initial emit
+        emit(calculateTotalStorage())
         while (true) {
-            val cacheSize = calculateDirectorySize(context.cacheDir)
-            val filesSize = calculateDirectorySize(context.filesDir)
-            emit(cacheSize + filesSize)
-            kotlinx.coroutines.delay(10000) // Update every 10 seconds
+            kotlinx.coroutines.delay(10000)
+            emit(calculateTotalStorage())
         }
     }
 
-    private fun calculateDirectorySize(directory: File): Long {
+    private fun calculateTotalStorage(): Long {
+        return calculateDirectorySize(context.cacheDir) + 
+               calculateDirectorySize(context.filesDir) +
+               (context.externalCacheDir?.let { calculateDirectorySize(it) } ?: 0L) +
+               (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                   calculateDirectorySize(context.noBackupFilesDir) + calculateDirectorySize(context.codeCacheDir)
+               } else 0L)
+    }
+
+    private fun calculateDirectorySize(directory: File?): Long {
+        if (directory == null || !directory.exists()) return 0L
         var size: Long = 0
         try {
-            directory.listFiles()?.forEach { file ->
+            val files = directory.listFiles() ?: return 0L
+            for (file in files) {
                 size += if (file.isDirectory) calculateDirectorySize(file) else file.length()
             }
         } catch (e: Exception) { }

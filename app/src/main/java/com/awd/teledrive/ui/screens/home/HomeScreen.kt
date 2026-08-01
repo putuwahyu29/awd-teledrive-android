@@ -534,46 +534,19 @@ fun HomeContent(
                     
                     if (isAtRoot) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            // Secure Folder Option
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 androidx.compose.material3.Switch(
-                                    checked = isSecureFolder,
-                                    onCheckedChange = { 
-                                        if (isPasswordSet) {
-                                            isSecureFolder = it
-                                            if (it) isVirtualFolder = false
-                                        } else if (it) {
-                                            Toast.makeText(context, context.getString(R.string.set_password_first), Toast.LENGTH_LONG).show()
-                                        }
-                                    },
-                                    enabled = isPasswordSet
+                                    checked = isVirtualFolder,
+                                    onCheckedChange = { isVirtualFolder = it }
                                 )
                                 Spacer(Modifier.width(12.dp))
                                 Column {
-                                    Text(stringResource(R.string.secure_folder_label), style = MaterialTheme.typography.bodyMedium)
+                                    Text(if (isVirtualFolder) stringResource(R.string.virtual_folder) else stringResource(R.string.channel_folder), style = MaterialTheme.typography.bodyMedium)
                                     Text(
-                                        stringResource(R.string.private_encrypted_group_desc),
+                                        if (isVirtualFolder) stringResource(R.string.sync_across_devices_desc) else stringResource(R.string.create_channel_telegram_desc),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                }
-                            }
-
-                            if (!isSecureFolder) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    androidx.compose.material3.Switch(
-                                        checked = isVirtualFolder,
-                                        onCheckedChange = { isVirtualFolder = it }
-                                    )
-                                    Spacer(Modifier.width(12.dp))
-                                    Column {
-                                        Text(if (isVirtualFolder) stringResource(R.string.virtual_folder) else stringResource(R.string.channel_folder), style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            if (isVirtualFolder) stringResource(R.string.sync_across_devices_desc) else stringResource(R.string.create_channel_telegram_desc),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
                                 }
                             }
                         }

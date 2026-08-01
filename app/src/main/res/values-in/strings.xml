@@ -289,6 +289,7 @@
     <string name="create_channel_telegram_desc">Buat channel baru di Telegram</string>
     <string name="not_loaded">Belum dimuat</string>
     <string name="failed_with_error">Gagal: %s</string>
+    <string name="loading">Memuat...</string>
     <string name="loading_percentage">%d%% Memuat...</string>
     <string name="preparing_media">Menyiapkan Media...</string>
     <string name="decrypt_to_view">File terenkripsi. Dekripsi untuk melihat.</string>

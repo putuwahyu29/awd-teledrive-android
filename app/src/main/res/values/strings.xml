@@ -291,6 +291,7 @@
     <string name="create_channel_telegram_desc">Create a new channel on Telegram</string>
     <string name="not_loaded">Not loaded</string>
     <string name="failed_with_error">Failed: %s</string>
+    <string name="loading">Loading...</string>
     <string name="loading_percentage">%d%% Loading...</string>
     <string name="preparing_media">Preparing Media...</string>
     <string name="decrypt_to_view">File is encrypted. Decrypt to view.</string>
