@@ -83,7 +83,8 @@ class PreviewViewModel @Inject constructor(
     }
 
     fun downloadForPreview(file: DriveItem.File) {
-        if (file.localPath == null) {
+        val localFile = file.localPath?.let { File(it) }
+        if (file.localPath == null || localFile?.exists() != true) {
             driveRepository.downloadForPreview(file.id, file.parentChatId, file.name)
         }
     }
@@ -99,7 +100,8 @@ class PreviewViewModel @Inject constructor(
     }
 
     fun autoDownloadForPreview(file: DriveItem.File) {
-        if (file.localPath == null) {
+        val localFile = file.localPath?.let { File(it) }
+        if (file.localPath == null || localFile?.exists() != true) {
             driveRepository.downloadForPreview(file.id, file.parentChatId, file.name)
         } else if (file.isEncrypted && !_decryptedPaths.value.containsKey(file.id)) {
             decryptForPreview(file)
@@ -118,10 +120,17 @@ class PreviewViewModel @Inject constructor(
                 try {
                     val encryptedFile = File(localPath)
                     val decryptedFile = File(context.cacheDir, "prev_dec_${file.id}_${file.name}")
+                    // Ensure decryption is tracked in the Transfer menu
+                    transferRepository.addTransfer(
+                        fileId = file.telegramFileId,
+                        remoteUniqueId = file.remoteUniqueId,
+                        fileName = file.name,
+                        isDownload = true,
+                        totalSize = file.size,
+                        status = context.getString(R.string.decrypting)
+                    )
+
                     encryptionManager.decryptFile(encryptedFile, decryptedFile, password) { progress ->
-                        // The UI can use transferRepository or we could expose another StateFlow.
-                        // For simplicity, let's update a manual status if needed.
-                        // But TransferRepository already tracks this fileId if it was enqueued.
                         transferRepository.updateTransferManual(
                             file.remoteUniqueId, 
                             progress, 
@@ -129,9 +138,22 @@ class PreviewViewModel @Inject constructor(
                             throttled = true
                         )
                     }
+
+                    // Mark as Completed when done
+                    transferRepository.updateTransferManual(
+                        file.remoteUniqueId,
+                        1.0f,
+                        TransferRepository.Status.COMPLETED
+                    )
+
                     _decryptedPaths.value = _decryptedPaths.value + (file.id to decryptedFile.absolutePath)
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    transferRepository.updateTransferManual(
+                        file.remoteUniqueId,
+                        0f,
+                        context.getString(R.string.failed_with_error, e.message ?: "Decryption failed")
+                    )
                 } finally {
                     _isDecrypting.value = _isDecrypting.value - file.id
                     _isOpening.value = _isOpening.value - file.id

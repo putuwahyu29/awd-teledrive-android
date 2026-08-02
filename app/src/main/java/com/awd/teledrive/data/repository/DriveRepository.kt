@@ -894,6 +894,11 @@ class DriveRepository @Inject constructor(
                         // Migrate the temporary queue ID to the real TDLib ID, including the local path for better matching
                         transferRepository.updateRemoteUniqueId(tempId, file.remote.uniqueId, file.id, finalPath)
                         
+                        // Force complete if Telegram says it's already done
+                        if (file.remote.isUploadingCompleted) {
+                            transferRepository.updateTransferManual(file.remote.uniqueId, 1.0f, TransferRepository.Status.COMPLETED)
+                        }
+
                         // Send distributed metadata for regular files
                         if (savedMessagesChatId != 0L && !finalCaption.contains("[TD_SPLIT|")) {
                             sendFileMetadata(result.id, originalFileName, virtualFolderId, isSecure)

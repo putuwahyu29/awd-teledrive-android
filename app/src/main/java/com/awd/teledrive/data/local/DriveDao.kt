@@ -90,10 +90,10 @@ interface DriveDao {
     suspend fun deleteItemsByIds(chatId: Long, ids: List<Long>)
 
     @Query("UPDATE drive_items SET localPath = :path WHERE remoteUniqueId = :uniqueId")
-    suspend fun updateLocalPathByUniqueId(uniqueId: String, path: String)
+    suspend fun updateLocalPathByUniqueId(uniqueId: String, path: String?)
 
     @Query("UPDATE drive_items SET thumbnailPath = :path WHERE remoteUniqueId = :uniqueId OR thumbnailRemoteUniqueId = :uniqueId")
-    suspend fun updateThumbnailPathByUniqueId(uniqueId: String, path: String)
+    suspend fun updateThumbnailPathByUniqueId(uniqueId: String, path: String?)
 
     @Query("UPDATE drive_items SET localPath = :path WHERE telegramFileId = :fileId")
     suspend fun updateLocalPath(fileId: Int, path: String)

@@ -1,5 +1,28 @@
 # Changelog / Riwayat Perubahan
 
+## [1.4.0] - 2026-08-02
+### Added / Ditambahkan
+- **EN:** Fully Decentralized Metadata system (individual metadata messages in Saved Messages).
+- **ID:** Sistem Metadata Terdesentralisasi sepenuhnya (pesan metadata individual di Pesan Tersimpan).
+- **EN:** Robust Manifest Merging for improved recovery of old virtual folders across devices.
+- **ID:** Penggabungan Manifes yang kuat untuk pemulihan folder virtual lama di berbagai perangkat.
+- **EN:** Real-time Local Storage usage calculation in Settings.
+- **ID:** Penghitungan penggunaan Penyimpanan Lokal secara real-time di Pengaturan.
+- **EN:** Improved Loading states in Preview with explicit decryption progress.
+- **ID:** Indikator memuat (loading) yang ditingkatkan pada Pratinjau dengan progres dekripsi yang jelas.
+- **EN:** Logical Cloud Usage calculation (correctly counting logical size for split files).
+- **ID:** Penghitungan Penggunaan Cloud yang logis (menghitung ukuran asli file yang di-split).
+
+### Fixed / Diperbaiki
+- **EN:** Fixed "stuck uploading" issue by ensuring terminal states are captured immediately at 100%.
+- **ID:** Memperbaiki masalah "upload macet" dengan memastikan status selesai ditangkap segera saat 100%.
+- **EN:** Fixed ENOENT (No such file) error when opening files immediately after upload.
+- **ID:** Memperbaiki error ENOENT (file tidak ditemukan) saat membuka file segera setelah upload.
+- **EN:** Prevented duplicate transfer entries by using path-based matching during ID handover.
+- **ID:** Mencegah entri transfer ganda menggunakan pencocokan berbasis path saat perpindahan ID.
+- **EN:** Enforced encryption for all files in secure private groups.
+- **ID:** Mewajibkan enkripsi untuk semua file dalam grup privat yang aman.
+
 ## [1.3.0] - 2026-07-30
 ### Added / Ditambahkan
 - **EN:** Secure Folder system with AES-256 local encryption.

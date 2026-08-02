@@ -8,6 +8,7 @@ import android.provider.MediaStore
 import android.util.Log
 import android.webkit.MimeTypeMap
 import androidx.documentfile.provider.DocumentFile
+import com.awd.teledrive.data.local.DriveDao
 import com.awd.teledrive.data.local.TransferDao
 import com.awd.teledrive.data.local.TransferEntity
 import com.awd.teledrive.data.model.TransferInfo
@@ -33,6 +34,7 @@ class TransferRepository @Inject constructor(
     private val telegramClient: TelegramClient,
     private val secureSettings: SecureSettings,
     private val transferDao: TransferDao,
+    private val driveDao: DriveDao,
     @param:ApplicationContext private val context: Context,
 ) {
     object Status {
@@ -97,8 +99,11 @@ class TransferRepository @Inject constructor(
                 val currentSize = if (isDownload) file.local.downloadedSize else file.remote.uploadedSize
                 val progress = if (isCompleted) 1.0f else (if (totalSize > 0L) currentSize.toFloat() / totalSize.toFloat() else 0.0f)
                 
+                // Aggressive completion check for uploads: if progress is 100%, mark as COMPLETED
+                val isEffectivelyCompleted = isCompleted || (!isDownload && totalSize > 0L && currentSize >= totalSize)
+                
                 val status = when {
-                    isCompleted -> Status.COMPLETED
+                    isEffectivelyCompleted -> Status.COMPLETED
                     isDownload && file.local.isDownloadingActive -> Status.DOWNLOADING
                     !isDownload && (file.remote.isUploadingActive || file.remote.uploadedSize > 0L) -> Status.UPLOADING
                     file.local.canBeDownloaded.not() && isDownload && !file.local.isDownloadingCompleted -> Status.FAILED
@@ -122,29 +127,20 @@ class TransferRepository @Inject constructor(
                             processQueue()
                         }
                     }
+
+                    // CRITICAL FIX: If it's a completed upload, clear the localPath in drive_items
+                    // to prevent ENOENT errors (since the temp/cache file is now likely deleted)
+                    if (status == Status.COMPLETED && !isDownload && uniqueId.isNotEmpty()) {
+                        scope.launch {
+                            driveDao.updateLocalPathByUniqueId(uniqueId, null)
+                        }
+                    }
                 }
                 
                 // If ID has changed (e.g. from temp to real), perform migration
                 if (uniqueId.isNotEmpty() && entity.remoteUniqueId != uniqueId) {
-                    Log.d("TransferRepo", "Handover detected: Migrating ${entity.remoteUniqueId} -> $uniqueId")
-                    val oldId = entity.remoteUniqueId
-                    transferDao.deleteTransfer(oldId)
-                    transferDao.insertTransfer(entity.copy(
-                        remoteUniqueId = uniqueId,
-                        fileId = fileId,
-                        progress = progress,
-                        status = status,
-                        downloadedSize = currentSize,
-                        totalSize = totalSize,
-                        localPath = if (localPath.isNotEmpty()) localPath else entity.localPath
-                    ))
-                    
-                    synchronized(queue) {
-                        idMigrationMap[oldId] = uniqueId
-                        if (activeTransferId == oldId) {
-                            activeTransferId = uniqueId
-                        }
-                    }
+                    Log.d("TransferRepo", "Handover detected in init: Migrating ${entity.remoteUniqueId} -> $uniqueId")
+                    updateRemoteUniqueId(entity.remoteUniqueId, uniqueId, fileId, localPath.takeIf { it.isNotEmpty() })
                 } else {
                     transferDao.updateProgress(entity.remoteUniqueId, progress, status, currentSize)
                 }
@@ -238,26 +234,46 @@ class TransferRepository @Inject constructor(
     }
 
     fun updateRemoteUniqueId(oldId: String, newUniqueId: String, newFileId: Int, localPath: String? = null) {
-        scope.launch {
-            val entity = transferDao.getTransferByUniqueId(oldId) ?: return@launch
-            transferDao.deleteTransfer(oldId)
-            transferDao.insertTransfer(entity.copy(
-                remoteUniqueId = newUniqueId,
-                fileId = newFileId,
-                localPath = localPath ?: entity.localPath
-            ))
-            
-            synchronized(queue) {
+        if (oldId == newUniqueId && localPath == null) return
+        
+        // Eagerly update migration map to prevent race conditions with progress updates
+        synchronized(queue) {
+            if (oldId != newUniqueId) {
                 idMigrationMap[oldId] = newUniqueId
-                if (activeTransferId == oldId) {
-                    activeTransferId = newUniqueId
+                Log.d("TransferRepo", "Migration map updated: $oldId -> $newUniqueId")
+            }
+            if (activeTransferId == oldId) {
+                activeTransferId = newUniqueId
+            }
+            completionDeferreds[oldId]?.let {
+                completionDeferreds[newUniqueId] = it
+                completionDeferreds.remove(oldId)
+            }
+        }
+
+        scope.launch {
+            try {
+                if (oldId != newUniqueId) {
+                    // Check if newUniqueId already exists to avoid PK conflict
+                    val existing = transferDao.getTransferByUniqueId(newUniqueId)
+                    if (existing != null) {
+                        Log.d("TransferRepo", "Target ID $newUniqueId already exists. Deleting old ID $oldId.")
+                        transferDao.deleteTransfer(oldId)
+                    } else {
+                        Log.d("TransferRepo", "Updating ID in DB: $oldId -> $newUniqueId")
+                        transferDao.updateUniqueId(oldId, newUniqueId)
+                    }
                 }
-                // Migrate deferred if exists
-                completionDeferreds[oldId]?.let {
-                    Log.d("TransferRepo", "Migrating deferred from $oldId to $newUniqueId")
-                    completionDeferreds[newUniqueId] = it
-                    completionDeferreds.remove(oldId)
+                
+                // Update fileId and localPath if provided
+                if (newFileId != 0) {
+                    transferDao.updateFileId(newUniqueId, newFileId)
                 }
+                if (localPath != null) {
+                    transferDao.updateLocalPath(newUniqueId, localPath)
+                }
+            } catch (e: Exception) {
+                Log.e("TransferRepo", "Migration failed in DB: ${e.message}")
             }
         }
     }
@@ -374,7 +390,26 @@ class TransferRepository @Inject constructor(
         // to prevent "Database is locked" or high contention
         scope.launch {
             try {
-                transferDao.updateProgressOnly(targetId, progress, status)
+                if (progress >= 1.0f || status == Status.COMPLETED || status == Status.FAILED || status == Status.CANCELLED || status.startsWith("Gagal") || status.startsWith("Failed")) {
+                    val entity = transferDao.getTransferByUniqueId(targetId)
+                    if (entity != null) {
+                        transferDao.updateProgressFull(targetId, progress, status, entity.totalSize)
+                    } else {
+                        transferDao.updateProgressOnly(targetId, progress, status)
+                    }
+                    
+                    // Signal completion if anyone is waiting
+                    synchronized(queue) {
+                        completionDeferreds[targetId]?.complete(Unit)
+                        completionDeferreds[remoteUniqueId]?.complete(Unit)
+                        if (activeTransferId == targetId || activeTransferId == remoteUniqueId) {
+                            activeTransferId = null
+                            processQueue()
+                        }
+                    }
+                } else {
+                    transferDao.updateProgressOnly(targetId, progress, status)
+                }
             } catch (e: Exception) {
                 Log.e("TransferRepo", "Failed to update progress for $targetId: ${e.message}")
             }

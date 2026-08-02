@@ -35,6 +35,15 @@ interface TransferDao {
     @Query("UPDATE transfers SET progress = :progress, status = :status WHERE remoteUniqueId = :uniqueId")
     suspend fun updateProgressOnly(uniqueId: String, progress: Float, status: String)
 
+    @Query("UPDATE transfers SET progress = :progress, status = :status, downloadedSize = :size WHERE remoteUniqueId = :uniqueId")
+    suspend fun updateProgressFull(uniqueId: String, progress: Float, status: String, size: Long)
+
     @Query("UPDATE transfers SET remoteUniqueId = :newUniqueId WHERE remoteUniqueId = :oldUniqueId")
     suspend fun updateUniqueId(oldUniqueId: String, newUniqueId: String)
+
+    @Query("UPDATE transfers SET fileId = :fileId WHERE remoteUniqueId = :uniqueId")
+    suspend fun updateFileId(uniqueId: String, fileId: Int)
+
+    @Query("UPDATE transfers SET localPath = :path WHERE remoteUniqueId = :uniqueId")
+    suspend fun updateLocalPath(uniqueId: String, path: String)
 }
