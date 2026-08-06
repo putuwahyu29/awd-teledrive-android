@@ -11,7 +11,8 @@ data class TeleDriveManifest(
     val secureFolderChatIds: Set<Long> = emptySet(),
     val splitFileMasters: Map<String, SplitFileMaster> = emptyMap(), // groupId -> MasterRecord
     val folderMetadataIds: Map<String, Long> = emptyMap(), // virtualId -> messageId
-    val fileMetadataIds: Map<String, Long> = emptyMap() // telegramMessageId -> metadataMessageId
+    val fileMetadataIds: Map<String, Long> = emptyMap(), // telegramMessageId -> metadataMessageId
+    val deletedFolderIds: Map<String, Long> = emptyMap() // virtualId -> deletedAt timestamp
 )
 
 @Serializable

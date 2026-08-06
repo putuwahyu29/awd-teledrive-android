@@ -235,7 +235,7 @@ fun HomeContent(
     onMoveItems: (Set<Long>, Long) -> Unit,
     onMoveFolderContents: (Long, Long) -> Unit,
     onDownloadFile: (Long, Long, String) -> Unit,
-    onDownloadFolderContents: (Long) -> Unit,
+    onDownloadFolderContents: (DriveItem.Folder) -> Unit,
     onToggleStarred: (DriveItem) -> Unit,
     onNavigateToFolder: (Long?, String?, String?) -> Unit,
     onNavigateBack: () -> Unit,
@@ -433,7 +433,7 @@ fun HomeContent(
             confirmButton = {
                 Button(onClick = {
                     folderToDownload?.let { folder ->
-                        onDownloadFolderContents(folder.telegramChatId)
+                        onDownloadFolderContents(folder)
                     }
                     folderToDownload = null
                 }) { Text(stringResource(R.string.download_contents)) }
@@ -696,7 +696,7 @@ fun HomeContent(
                                         val selectedFolders = items.filter { it.id in selectedItems }.filterIsInstance<DriveItem.Folder>()
                                         
                                         selectedFiles.forEach { onDownloadFile(it.id, it.parentChatId, it.name) }
-                                        selectedFolders.forEach { onDownloadFolderContents(it.telegramChatId) }
+                                        selectedFolders.forEach { onDownloadFolderContents(it) }
                                         
                                         selectedItems = emptySet()
                                         Toast.makeText(context, context.getString(R.string.starting_downloads, selectedFiles.size + selectedFolders.size), Toast.LENGTH_SHORT).show()

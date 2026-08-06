@@ -72,7 +72,7 @@ fun StarredScreen(
             val selectedFiles = items.filter { it.id in selectedItems }.filterIsInstance<DriveItem.File>()
             val selectedFolders = items.filter { it.id in selectedItems }.filterIsInstance<DriveItem.Folder>()
             selectedFiles.forEach { viewModel.downloadFile(it.id, it.parentChatId, it.name) }
-            selectedFolders.forEach { viewModel.downloadFolderContents(it.telegramChatId) }
+            selectedFolders.forEach { viewModel.downloadFolderContents(it) }
             selectedItems = emptySet()
         },
         onGetInviteLink = viewModel::getFolderInviteLink,

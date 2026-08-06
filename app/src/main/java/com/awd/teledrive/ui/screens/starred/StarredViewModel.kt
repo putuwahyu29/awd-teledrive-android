@@ -58,9 +58,9 @@ class StarredViewModel @Inject constructor(
         }
     }
 
-    fun downloadFolderContents(chatId: Long) {
+    fun downloadFolderContents(folder: DriveItem.Folder) {
         viewModelScope.launch {
-            driveRepository.downloadFolderContents(chatId)
+            driveRepository.downloadFolderContents(folder)
         }
     }
 

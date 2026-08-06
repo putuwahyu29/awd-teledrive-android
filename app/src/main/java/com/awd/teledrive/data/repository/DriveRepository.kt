@@ -157,8 +157,20 @@ class DriveRepository @Inject constructor(
     }
 
     private fun mergeManifests(base: TeleDriveManifest, other: TeleDriveManifest): TeleDriveManifest {
+        val mergedDeletedIds = base.deletedFolderIds.toMutableMap()
+        mergedDeletedIds.putAll(other.deletedFolderIds)
+
         val mergedFolders = base.virtualFolders.toMutableMap()
-        mergedFolders.putAll(other.virtualFolders)
+        other.virtualFolders.forEach { (id, vf) ->
+            val deletedAt = mergedDeletedIds[id]
+            if (deletedAt == null || vf.createdAt > deletedAt) {
+                mergedFolders[id] = vf
+            }
+        }
+        mergedFolders.keys.removeIf { id ->
+            val deletedAt = mergedDeletedIds[id]
+            deletedAt != null && (mergedFolders[id]?.createdAt ?: 0L) <= deletedAt
+        }
         
         val mergedMappings = base.fileMappings.toMutableMap()
         mergedMappings.putAll(other.fileMappings)
@@ -182,7 +194,8 @@ class DriveRepository @Inject constructor(
             secureFolderChatIds = mergedSecureIds,
             splitFileMasters = mergedSplitMasters,
             folderMetadataIds = mergedFolderMetaIds,
-            fileMetadataIds = mergedFileMetaIds
+            fileMetadataIds = mergedFileMetaIds,
+            deletedFolderIds = mergedDeletedIds
         )
     }
 
@@ -281,23 +294,18 @@ class DriveRepository @Inject constructor(
                         currentPid = currentManifest.virtualFolders[currentPid]?.parentId ?: "0"
                     } else {
                         targetChat = currentPid.toLongOrNull() ?: savedMessagesChatId
-                        // If the virtual folder is directly inside a physical chat, its virtualParentId should be "0"
-                        // so it appears in the root of that chat view.
                         break
                     }
                     depth++
                 }
                 
-                // Final fix: If the parent is a physical chat ID, set virtualParentId to "0"
                 val finalVirtualParentId = if (vf.parentId.startsWith("vf_")) vf.parentId else "0"
-                
-                // Deterministic Long ID based on virtualId string
                 val deterministicId = vf.id.replace("vf_", "").filter { it.isDigit() }.toLongOrNull() 
                     ?: (vf.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL)
 
                 DriveItemEntity(existing?.id ?: deterministicId, vf.name, 0, "virtual_folder", 0, targetChat, true, isVirtual = true, virtualId = vf.id, virtualParentId = finalVirtualParentId, createdAt = vf.createdAt * 1000, isStarred = existing?.isStarred ?: false, isSecure = vf.isSecure)
             }
-            driveDao.insertItems(entities)
+            driveDao.syncVirtualFolders(entities)
         }
     }
 
@@ -307,7 +315,6 @@ class DriveRepository @Inject constructor(
         val updatedFolders = currentManifest.virtualFolders.toMutableMap()
         updatedFolders[id] = folder
         currentManifest = currentManifest.copy(virtualFolders = updatedFolders)
-        saveCloudManifest()
         syncVirtualFoldersToDb()
         
         // Send distributed metadata message and track its ID
@@ -316,12 +323,16 @@ class DriveRepository @Inject constructor(
             val text = "$VFOLDER_META_PREFIX\n\n$metaJson"
             telegramClient.send(TdApi.SendMessage(savedMessagesChatId, null, null, null, null, TdApi.InputMessageText(TdApi.FormattedText(text, emptyArray()), null, true))) { result ->
                 if (result is TdApi.Message) {
-                    val updatedMetaIds = currentManifest.folderMetadataIds.toMutableMap()
-                    updatedMetaIds[id] = result.id
-                    currentManifest = currentManifest.copy(folderMetadataIds = updatedMetaIds)
-                    // No need to save manifest again immediately, it will be saved on next change
+                    synchronized(currentManifest) {
+                        val updatedMetaIds = currentManifest.folderMetadataIds.toMutableMap()
+                        updatedMetaIds[id] = result.id
+                        currentManifest = currentManifest.copy(folderMetadataIds = updatedMetaIds)
+                        saveCloudManifest() // Save manifest after we have the message ID
+                    }
                 }
             }
+        } else {
+            saveCloudManifest()
         }
     }
 
@@ -515,6 +526,14 @@ class DriveRepository @Inject constructor(
                     val jsonStartIndex = text.indexOf('{')
                     if (jsonStartIndex != -1) {
                         val vf = json.decodeFromString<VirtualFolder>(text.substring(jsonStartIndex))
+                        
+                        // Check if this folder was deleted
+                        val deletedAt = currentManifest.deletedFolderIds[vf.id]
+                        if (deletedAt != null && vf.createdAt <= deletedAt) {
+                            // Skip re-adding deleted folder
+                            return null
+                        }
+
                         val updatedFolders = currentManifest.virtualFolders.toMutableMap()
                         val updatedMetaIds = currentManifest.folderMetadataIds.toMutableMap()
                         
@@ -699,6 +718,12 @@ class DriveRepository @Inject constructor(
         val finalId = mappedId ?: tagId ?: "0"
         
         if (finalId != "0" && !currentManifest.virtualFolders.containsKey(finalId)) {
+            // Check if this folder was explicitly deleted
+            val deletedAt = currentManifest.deletedFolderIds[finalId]
+            if (deletedAt != null) {
+                return "0" // Don't recover deleted folders
+            }
+
             // Recovered Folder Logic: Automatically create a placeholder if it's missing in manifest
             val recoveredName = "Recovered_${finalId.takeLast(6)}"
             val newFolder = VirtualFolder(
@@ -1095,65 +1120,98 @@ class DriveRepository @Inject constructor(
         }
     }
 
-    fun permanentlyDeleteItems(chatId: Long, items: List<DriveItem>) {
+    fun permanentlyDeleteItems(items: List<DriveItem>) {
         scope.launch {
-            val messageIds = items.filterIsInstance<DriveItem.File>().map { it.id }
-            val physicalFolderIds = items.filterIsInstance<DriveItem.Folder>().filter { !it.isVirtual }.map { it.telegramChatId }
-            val virtualFolderIds = items.filterIsInstance<DriveItem.Folder>().filter { it.isVirtual }.mapNotNull { it.virtualId }
-            if (messageIds.isNotEmpty()) {
-                telegramClient.send(TdApi.DeleteMessages(chatId, messageIds.toLongArray(), true)) {
-                    scope.launch { messageIds.forEach { id -> driveDao.deleteItemCompletely(id, chatId) } }
+            // Group files by their parentChatId for correct Telegram deletion
+            val filesByChat = items.filterIsInstance<DriveItem.File>().groupBy { it.parentChatId }
+            filesByChat.forEach { (chatId, files) ->
+                val ids = files.map { it.id }.toLongArray()
+                telegramClient.send(TdApi.DeleteMessages(chatId, ids, true)) {
+                    scope.launch { files.forEach { f -> driveDao.deleteItemCompletely(f.id, chatId) } }
                 }
             }
-            physicalFolderIds.forEach { fid ->
-                telegramClient.send(TdApi.DeleteChat(fid)) {
+
+            // Clean up manifest for deleted files
+            if (filesByChat.isNotEmpty()) {
+                synchronized(currentManifest) {
+                    val updatedFileMetaIds = currentManifest.fileMetadataIds.toMutableMap()
+                    val updatedFileMappings = currentManifest.fileMappings.toMutableMap()
+                    val updatedSplitMasters = currentManifest.splitFileMasters.toMutableMap()
+                    val metadataIdsToDelete = mutableListOf<Long>()
+
+                    items.filterIsInstance<DriveItem.File>().forEach { file ->
+                        updatedFileMetaIds.remove(file.id.toString())?.let { metadataIdsToDelete.add(it) }
+                        updatedFileMappings.remove(file.id.toString())
+                        file.splitGroupId?.let { gid ->
+                            updatedSplitMasters.remove(gid)?.metadataMessageId?.let { metadataIdsToDelete.add(it) }
+                        }
+                    }
+
+                    currentManifest = currentManifest.copy(
+                        fileMetadataIds = updatedFileMetaIds,
+                        fileMappings = updatedFileMappings,
+                        splitFileMasters = updatedSplitMasters,
+                        updatedAt = System.currentTimeMillis() / 1000
+                    )
+                    
+                    if (metadataIdsToDelete.isNotEmpty() && savedMessagesChatId != 0L) {
+                        telegramClient.send(TdApi.DeleteMessages(savedMessagesChatId, metadataIdsToDelete.toLongArray(), true)) {}
+                    }
+                }
+                saveCloudManifest()
+            }
+
+            val physicalFolders = items.filterIsInstance<DriveItem.Folder>().filter { !it.isVirtual }
+            physicalFolders.forEach { folder ->
+                telegramClient.send(TdApi.DeleteChat(folder.telegramChatId)) {
                     scope.launch {
-                        driveDao.deleteItemsByChat(fid)
-                        driveDao.deleteItemCompletely(fid, savedMessagesChatId)
+                        driveDao.deleteItemsByChat(folder.telegramChatId)
+                        driveDao.deleteItemCompletely(folder.telegramChatId, folder.parentChatId)
                     }
                 }
             }
-            if (virtualFolderIds.isNotEmpty()) {
-                val updatedFolders = currentManifest.virtualFolders.toMutableMap()
-                virtualFolderIds.forEach { vid -> deleteVirtualFolderRecursive(chatId, vid, updatedFolders) }
-                currentManifest = currentManifest.copy(virtualFolders = updatedFolders, updatedAt = System.currentTimeMillis() / 1000)
+            val virtualFolders = items.filterIsInstance<DriveItem.Folder>().filter { it.isVirtual }
+            if (virtualFolders.isNotEmpty()) {
+                virtualFolders.forEach { folder ->
+                    folder.virtualId?.let { vid -> deleteVirtualFolderRecursive(vid) }
+                }
                 saveCloudManifest()
             }
         }
     }
 
-    private suspend fun deleteVirtualFolderRecursive(chatId: Long, virtualId: String, manifestMap: MutableMap<String, VirtualFolder>) {
+    private suspend fun deleteVirtualFolderRecursive(virtualId: String) {
         val children = driveDao.getItemsByVirtualParentSync(virtualId)
-        val fileIds = children.filter { !it.isFolder }.map { it.id }
-        val subFolders = children.filter { it.isFolder && it.isVirtual }
         
-        // 1. Delete actual files from Telegram
-        if (fileIds.isNotEmpty()) {
-            telegramClient.send(TdApi.DeleteMessages(chatId, fileIds.toLongArray(), true)) {}
+        // 1. Group actual files by chat and delete from Telegram
+        val filesByChat = children.filter { !it.isFolder }.groupBy { it.parentChatId }
+        filesByChat.forEach { (chatId, entities) ->
+            val ids = entities.map { it.id }.toLongArray()
+            telegramClient.send(TdApi.DeleteMessages(chatId, ids, true)) {}
         }
         
-        // 2. Collect metadata messages to delete
+        // 2. Collect metadata messages to delete from Saved Messages
         val metadataIdsToDelete = mutableListOf<Long>()
         currentManifest.folderMetadataIds[virtualId]?.let { metadataIdsToDelete.add(it) }
         
-        fileIds.forEach { fid ->
-            currentManifest.fileMetadataIds[fid.toString()]?.let { metadataIdsToDelete.add(it) }
-            children.find { it.id == fid }?.splitGroupId?.let { gid ->
-                currentManifest.splitFileMasters[gid]?.metadataMessageId?.let { metadataIdsToDelete.add(it) }
+        children.forEach { child ->
+            if (!child.isFolder) {
+                currentManifest.fileMetadataIds[child.id.toString()]?.let { metadataIdsToDelete.add(it) }
+                child.splitGroupId?.let { gid ->
+                    currentManifest.splitFileMasters[gid]?.metadataMessageId?.let { metadataIdsToDelete.add(it) }
+                }
             }
         }
         
-        if (metadataIdsToDelete.isNotEmpty()) {
+        if (metadataIdsToDelete.isNotEmpty() && savedMessagesChatId != 0L) {
             telegramClient.send(TdApi.DeleteMessages(savedMessagesChatId, metadataIdsToDelete.toLongArray(), true)) {}
         }
 
-        // 3. Recurse into subfolders
-        subFolders.forEach { sf -> sf.virtualId?.let { deleteVirtualFolderRecursive(chatId, it, manifestMap) } }
-        
-        // 4. Update manifest in-memory (atomically update local maps first)
-        manifestMap.remove(virtualId)
-        
+        // 3. Update manifest in-memory (atomically update local maps first)
         synchronized(currentManifest) {
+            val updatedFolders = currentManifest.virtualFolders.toMutableMap()
+            updatedFolders.remove(virtualId)
+
             val updatedMetaIds = currentManifest.folderMetadataIds.toMutableMap()
             updatedMetaIds.remove(virtualId)
             
@@ -1161,38 +1219,71 @@ class DriveRepository @Inject constructor(
             val updatedFileMappings = currentManifest.fileMappings.toMutableMap()
             val updatedSplitMasters = currentManifest.splitFileMasters.toMutableMap()
             
-            fileIds.forEach { fid ->
-                updatedFileMetaIds.remove(fid.toString())
-                updatedFileMappings.remove(fid.toString())
-                children.find { it.id == fid }?.splitGroupId?.let { updatedSplitMasters.remove(it) }
+            val updatedDeletedIds = currentManifest.deletedFolderIds.toMutableMap()
+            updatedDeletedIds[virtualId] = System.currentTimeMillis() / 1000
+
+            children.forEach { child ->
+                if (!child.isFolder) {
+                    updatedFileMetaIds.remove(child.id.toString())
+                    updatedFileMappings.remove(child.id.toString())
+                    child.splitGroupId?.let { updatedSplitMasters.remove(it) }
+                }
             }
 
             currentManifest = currentManifest.copy(
+                virtualFolders = updatedFolders,
                 folderMetadataIds = updatedMetaIds,
                 fileMetadataIds = updatedFileMetaIds,
                 fileMappings = updatedFileMappings,
-                splitFileMasters = updatedSplitMasters
+                splitFileMasters = updatedSplitMasters,
+                deletedFolderIds = updatedDeletedIds,
+                updatedAt = System.currentTimeMillis() / 1000
             )
+        }
+
+        // 4. Recurse into sub-folders
+        children.filter { it.isFolder && it.isVirtual }.forEach { sf ->
+            sf.virtualId?.let { deleteVirtualFolderRecursive(it) }
         }
 
         // 5. DB Cleanup
         val entity = driveDao.getVirtualFolderById(virtualId)
         if (entity != null) driveDao.deleteItemCompletely(entity.id, entity.parentChatId)
-        fileIds.forEach { driveDao.deleteItemCompletely(it, chatId) }
+        children.forEach { child ->
+            driveDao.deleteItemCompletely(child.id, child.parentChatId)
+        }
     }
 
-    fun downloadFolderContents(folderChatId: Long) {
-        telegramClient.send(TdApi.GetChatHistory(folderChatId, 0, 0, 1000, false)) { result ->
-            if (result is TdApi.Messages) {
-                result.messages.forEach { message ->
-                    val fileId = when (val content = message.content) {
-                        is TdApi.MessageDocument -> content.document.document.id
-                        is TdApi.MessagePhoto -> content.photo.sizes.lastOrNull()?.photo?.id ?: 0
-                        is TdApi.MessageVideo -> content.video.video.id
-                        is TdApi.MessageAudio -> content.audio.audio.id
-                        else -> 0
+    fun downloadFolderContents(folder: DriveItem.Folder) {
+        if (folder.isVirtual) {
+            folder.virtualId?.let { downloadVirtualFolderRecursive(it) }
+        } else {
+            telegramClient.send(TdApi.GetChatHistory(folder.telegramChatId, 0, 0, 1000, false)) { result ->
+                if (result is TdApi.Messages) {
+                    result.messages.forEach { message ->
+                        val fileId = when (val content = message.content) {
+                            is TdApi.MessageDocument -> content.document.document.id
+                            is TdApi.MessagePhoto -> content.photo.sizes.lastOrNull()?.photo?.id ?: 0
+                            is TdApi.MessageVideo -> content.video.video.id
+                            is TdApi.MessageAudio -> content.audio.audio.id
+                            else -> 0
+                        }
+                        if (fileId != 0) telegramClient.send(TdApi.DownloadFile(fileId, 1, 0, 0, false))
                     }
-                    if (fileId != 0) telegramClient.send(TdApi.DownloadFile(fileId, 1, 0, 0, false))
+                }
+            }
+        }
+    }
+
+    private fun downloadVirtualFolderRecursive(virtualId: String) {
+        scope.launch {
+            val children = driveDao.getItemsByVirtualParentSync(virtualId)
+            children.forEach { child ->
+                if (child.isFolder && child.isVirtual) {
+                    child.virtualId?.let { downloadVirtualFolderRecursive(it) }
+                } else if (!child.isFolder) {
+                    // It's a file, initiate download
+                    downloadFile(child.id, child.parentChatId, child.name)
                 }
             }
         }

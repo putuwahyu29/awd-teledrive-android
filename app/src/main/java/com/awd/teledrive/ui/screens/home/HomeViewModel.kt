@@ -238,16 +238,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun downloadFolderContents(folderChatId: Long) {
+    fun downloadFolderContents(folder: DriveItem.Folder) {
         viewModelScope.launch {
-            driveRepository.downloadFolderContents(folderChatId)
+            driveRepository.downloadFolderContents(folder)
         }
     }
 
     fun deleteItems(itemsToDelete: List<DriveItem>) {
         viewModelScope.launch {
-            val fromChatId = _currentFolderId.value ?: driveRepository.getSavedMessagesChatId()
-            driveRepository.permanentlyDeleteItems(fromChatId, itemsToDelete)
+            driveRepository.permanentlyDeleteItems(itemsToDelete)
         }
     }
 

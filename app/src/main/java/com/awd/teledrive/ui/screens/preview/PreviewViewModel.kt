@@ -172,7 +172,7 @@ class PreviewViewModel @Inject constructor(
 
     fun deleteItem(file: DriveItem.File) {
         viewModelScope.launch {
-            driveRepository.permanentlyDeleteItems(file.parentChatId, listOf(file))
+            driveRepository.permanentlyDeleteItems(listOf(file))
         }
     }
 

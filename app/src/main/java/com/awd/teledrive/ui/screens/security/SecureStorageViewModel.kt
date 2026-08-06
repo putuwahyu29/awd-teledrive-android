@@ -158,8 +158,7 @@ class SecureStorageViewModel @Inject constructor(
 
     fun deleteItems(items: List<DriveItem>) {
         viewModelScope.launch {
-            val fromChatId = _currentFolderId.value ?: driveRepository.getSavedMessagesChatId()
-            driveRepository.permanentlyDeleteItems(fromChatId, items)
+            driveRepository.permanentlyDeleteItems(items)
         }
     }
 

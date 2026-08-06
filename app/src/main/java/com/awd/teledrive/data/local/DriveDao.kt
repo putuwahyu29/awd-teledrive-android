@@ -36,6 +36,16 @@ interface DriveDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItems(items: List<DriveItemEntity>)
 
+    @Query("DELETE FROM drive_items WHERE isVirtual = 1 AND virtualId NOT IN (:ids)")
+    suspend fun deleteVirtualFoldersNotInList(ids: List<String>)
+
+    @Transaction
+    suspend fun syncVirtualFolders(entities: List<DriveItemEntity>) {
+        val virtualIds = entities.mapNotNull { it.virtualId }
+        deleteVirtualFoldersNotInList(virtualIds)
+        insertItems(entities)
+    }
+
     @Transaction
     suspend fun refreshChatItems(chatId: Long, items: List<DriveItemEntity>, preserveFolders: Boolean = false) {
         val newItemIds = items.map { it.id }.toSet()

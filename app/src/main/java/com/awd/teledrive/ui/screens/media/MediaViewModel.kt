@@ -48,10 +48,7 @@ class MediaViewModel @Inject constructor(
 
     fun deleteItems(files: List<DriveItem.File>) {
         viewModelScope.launch {
-            // Group by chatId for efficiency if possible, or just delete one by one group
-            files.groupBy { it.parentChatId }.forEach { (chatId, items) ->
-                driveRepository.permanentlyDeleteItems(chatId, items)
-            }
+            driveRepository.permanentlyDeleteItems(files)
         }
     }
 
