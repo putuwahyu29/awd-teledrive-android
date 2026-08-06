@@ -144,7 +144,8 @@ class SecureStorageViewModel @Inject constructor(
     fun navigateBack() {
         if (_currentVirtualFolderId.value != "0") {
             val parentId = driveRepository.getParentVirtualId(_currentVirtualFolderId.value)
-            navigateToFolder(_currentFolderId.value, parentId, if (parentId == "0") null else "...") 
+            val parentName = if (parentId == "0") null else driveRepository.getVirtualFolderName(parentId)
+            navigateToFolder(_currentFolderId.value, parentId, parentName) 
         } else if (_currentFolderId.value != null) {
             navigateToFolder(null, "0", null)
         }

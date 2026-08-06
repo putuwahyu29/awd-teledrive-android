@@ -36,13 +36,14 @@ class PreviewViewModel @Inject constructor(
     private val chatId: Long = savedStateHandle.get<Long>("chatId") ?: 0L
     private val initialFileId: Long = savedStateHandle.get<Long>("fileId") ?: 0L
     private val isMediaOnly: Boolean = savedStateHandle.get<Boolean>("isMediaOnly") ?: false
+    private val virtualParentId: String = savedStateHandle.get<String>("virtualParentId") ?: "0"
 
     val items: StateFlow<List<DriveItem.File>> = (if (isMediaOnly) {
         driveRepository.getAllFiles().map { list ->
             list.filter { it.mimeType.startsWith("image/") || it.mimeType.startsWith("video/") }
         }
     } else {
-        driveRepository.getItems(if (chatId != 0L) chatId else null)
+        driveRepository.getItems(if (chatId != 0L) chatId else null, virtualParentId)
             .map { list -> list.filterIsInstance<DriveItem.File>() }
     }).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 

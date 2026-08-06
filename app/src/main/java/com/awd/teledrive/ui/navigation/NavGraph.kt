@@ -79,9 +79,9 @@ sealed class Screen(val route: String, val icon: ImageVector? = null, val labelR
     object Logs : Screen("logs")
     object BackupSettings : Screen("backup_settings")
     object SecureStorage : Screen("secure_storage")
-    object Preview : Screen("preview/{chatId}/{fileId}?isMediaOnly={isMediaOnly}") {
-        fun createRoute(chatId: Long, fileId: Long, isMediaOnly: Boolean = false) = 
-            "preview/$chatId/$fileId?isMediaOnly=$isMediaOnly"
+    object Preview : Screen("preview/{chatId}/{fileId}?isMediaOnly={isMediaOnly}&virtualParentId={virtualParentId}") {
+        fun createRoute(chatId: Long, fileId: Long, isMediaOnly: Boolean = false, virtualParentId: String = "0") = 
+            "preview/$chatId/$fileId?isMediaOnly=$isMediaOnly&virtualParentId=$virtualParentId"
     }
     object VideoPlayer : Screen("video_player/{path}") {
         fun createRoute(path: String) = "video_player/${URLEncoder.encode(path, "UTF-8")}"
@@ -262,7 +262,7 @@ fun NavGraph(navController: NavHostController) {
                     onNavigateToTransfers = { navController.navigate(Screen.Transfers.route) },
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                     onNavigateToPreview = { file -> 
-                        navController.navigate(Screen.Preview.createRoute(file.parentChatId, file.id))
+                        navController.navigate(Screen.Preview.createRoute(file.parentChatId, file.id, virtualParentId = file.virtualParentId ?: "0"))
                     }
                 )
             }
@@ -270,7 +270,7 @@ fun NavGraph(navController: NavHostController) {
                 StarredScreen(
                     onBack = { navController.popBackStack() },
                     onNavigateToPreview = { file -> 
-                        navController.navigate(Screen.Preview.createRoute(file.parentChatId, file.id))
+                        navController.navigate(Screen.Preview.createRoute(file.parentChatId, file.id, virtualParentId = file.virtualParentId ?: "0"))
                     }
                 )
             }
@@ -316,7 +316,7 @@ fun NavGraph(navController: NavHostController) {
                         securityViewModel.lockSecureMode()
                     },
                     onNavigateToPreview = { file ->
-                        navController.navigate(Screen.Preview.createRoute(file.parentChatId, file.id))
+                        navController.navigate(Screen.Preview.createRoute(file.parentChatId, file.id, virtualParentId = file.virtualParentId ?: "0"))
                     },
                     onNavigateToTransfers = { navController.navigate(Screen.Transfers.route) }
                 )
@@ -326,7 +326,8 @@ fun NavGraph(navController: NavHostController) {
                 arguments = listOf(
                     navArgument("chatId") { type = NavType.LongType },
                     navArgument("fileId") { type = NavType.LongType },
-                    navArgument("isMediaOnly") { type = NavType.BoolType; defaultValue = false }
+                    navArgument("isMediaOnly") { type = NavType.BoolType; defaultValue = false },
+                    navArgument("virtualParentId") { type = NavType.StringType; defaultValue = "0" }
                 )
             ) {
                 PreviewScreen(

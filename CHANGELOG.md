@@ -1,5 +1,13 @@
 # Changelog / Riwayat Perubahan
 
+## [1.4.1] - 2026-08-06
+### Added / Ditambahkan
+- **EN:** Enhanced virtual folder management and deletion logic.
+- **ID:** Peningkatan manajemen folder virtual dan logika penghapusan.
+### Fixed / Diperbaiki
+- **EN:** Improved navigation and synchronization in Home and Starred screens.
+- **ID:** Peningkatan navigasi dan sinkronisasi pada layar Beranda dan Berbintang.
+
 ## [1.4.0] - 2026-08-02
 ### Added / Ditambahkan
 - **EN:** Fully Decentralized Metadata system (individual metadata messages in Saved Messages).
